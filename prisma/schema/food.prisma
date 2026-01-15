@@ -1,0 +1,150 @@
+enum Unit {
+  g
+  kg
+  ml
+  l
+  tbsp
+  tsp
+  piece
+}
+
+
+enum StorageType {
+  pantry
+  fridge
+  freezer
+}
+
+
+enum IngredientType {
+  food
+  drink
+  condiment
+}
+
+
+model Tag {
+  id String @id @default(cuid())
+  name String
+  color String
+
+  ingredients Ingredient[]
+
+  user User @relation(fields: [userId], references: [id])
+  userId String
+}
+
+
+model Ingredient {
+  id String @id @default(cuid())
+  name String
+  type IngredientType
+  storageType StorageType?
+  tag Tag[]
+
+  user User @relation(fields: [userId], references: [id])
+  userId String
+
+  recipeIngredients RecipeIngredient[]
+  storedIngredients StoredIngredient[]
+  shoppingListIngredients ShoppingListIngredient[]  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+}
+
+
+model Recipe {
+  id String @id @default(cuid())
+  name String
+
+  ingredients RecipeIngredient[]
+
+  user User @relation(fields: [userId], references: [id])
+  userId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model RecipeIngredient {
+  id String @id @default(cuid())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredientId String
+
+  quantity Float
+  unit Unit
+
+  @@unique([recipeId, ingredientId])
+}
+
+
+model Stored {
+  id String @id @default(cuid())
+  name String
+  type StorageType
+
+  user User @relation(fields: [userId], references: [id])
+  userId String
+
+  ingredients StoredIngredient[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StoredIngredient {
+  id String @id @default(cuid())
+
+  stored Stored @relation(fields: [storedId], references: [id], onDelete: Cascade)
+  storedId String
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredientId String
+
+  quantity Float
+  unit Unit
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storedId, ingredientId])
+}
+
+
+
+model ShoppingList {
+  id String @id @default(cuid())
+  name String
+
+  user User @relation(fields: [userId], references: [id])
+  userId String
+
+  ingredients ShoppingListIngredient[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+}
+
+
+model ShoppingListIngredient {
+  id String @id @default(cuid())
+  shoppingList ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  shoppingListId String
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredientId String
+  quantity Float
+  unit Unit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
