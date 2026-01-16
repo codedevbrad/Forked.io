@@ -6,7 +6,7 @@ import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { addIngredientToStoredAction } from "@/src/domains/stored/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
-import { useStored } from "@/src/domains/stored/_contexts/useStored";
+import { useStoredLocation, useStored } from "@/src/domains/stored/_contexts/useStored";
 import { Unit } from "@prisma/client";
 
 type AddIngredientToStoredFormProps = {
@@ -21,11 +21,13 @@ export function AddIngredientToStoredForm({
   onCancel,
 }: AddIngredientToStoredFormProps) {
   const { data: ingredients, isLoading: ingredientsLoading } = useIngredients();
-  const { mutate } = useStored();
+  const { mutate: mutateLocation } = useStoredLocation(storedId);
+  const { mutate: mutateAll } = useStored();
   const [ingredientId, setIngredientId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState<Unit>(Unit.g);
   const [expiresAt, setExpiresAt] = useState("");
+  const [storeLink, setStoreLink] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -51,7 +53,8 @@ export function AddIngredientToStoredForm({
         ingredientId,
         quantityNum,
         unit,
-        expiresAtDate
+        expiresAtDate,
+        storeLink || null
       );
 
       if (!result.success) {
@@ -61,7 +64,9 @@ export function AddIngredientToStoredForm({
         setQuantity("");
         setUnit(Unit.g);
         setExpiresAt("");
-        await mutate();
+        setStoreLink("");
+        await mutateLocation();
+        await mutateAll();
         onSuccess?.();
       }
     });
@@ -89,9 +94,9 @@ export function AddIngredientToStoredForm({
                 </SelectItem>
               ))
             ) : (
-              <SelectItem value="" disabled>
+              <div className="px-2 py-1.5 text-sm text-muted-foreground">
                 No ingredients available
-              </SelectItem>
+              </div>
             )}
           </SelectContent>
         </Select>
@@ -146,6 +151,19 @@ export function AddIngredientToStoredForm({
           value={expiresAt}
           onChange={(e) => setExpiresAt(e.target.value)}
           disabled={isPending}
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="storeLink" className="text-sm font-medium">
+          Store Link (optional)
+        </label>
+        <Input
+          id="storeLink"
+          type="url"
+          value={storeLink}
+          onChange={(e) => setStoreLink(e.target.value)}
+          disabled={isPending}
+          placeholder="e.g., https://store.com/product"
         />
       </div>
       {error && (

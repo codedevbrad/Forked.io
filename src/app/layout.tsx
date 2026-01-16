@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionProvider } from "@/src/components/providers/session-provider";
 import { Header } from "@/src/components/custom/header";
+import { BreadcrumbView } from "@/src/components/custom/breadcrumb-view";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Recipes",
+  title: "Forked.IO",
   description: "PublishOS is a platform for building and publishing websites.",
 };
 
@@ -37,6 +38,7 @@ export default function RootLayout({
 
             {/* Content fills remaining space */}
             <main className="flex-1 overflow-hidden p-3">
+              <BreadcrumbView />
               {children}
             </main>
           </div>

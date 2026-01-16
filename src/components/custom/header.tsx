@@ -48,7 +48,7 @@ export function Header() {
                     className="gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    Create
+                    <p className=" pr-1"> Create </p>
                   </Button>
                   <div className="text-sm">
                     <span className="text-muted-foreground">Signed in as </span>

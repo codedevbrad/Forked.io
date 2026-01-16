@@ -1,39 +1,66 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { getStoredLocationAction } from "@/src/domains/stored/db";
+"use client";
+
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useUser } from "@/src/domains/user/_contexts/useUser";
+import { useStoredLocation } from "@/src/domains/stored/_contexts/useStored";
 import { StoredIngredientsList } from "./_components/stored-ingredients-list";
 import { AddIngredientToStoredPopover } from "./_components/add-ingredient-to-stored-popover";
+import { StorageType } from "@prisma/client";
 
-export default async function StoredLocationPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const session = await auth();
-  const { id } = await params;
-  
-  if (!session?.user?.id) {
-    redirect("/auth/signin");
+function getStorageTypeLabel(type: StorageType): string {
+  switch (type) {
+    case StorageType.pantry:
+      return "Pantry";
+    case StorageType.fridge:
+      return "Fridge";
+    case StorageType.freezer:
+      return "Freezer";
+    default:
+      return type;
+  }
+}
+
+export default function StoredLocationPage() {
+  const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string;
+  const { data: user, isLoading: userLoading } = useUser();
+  const { data: stored, error, isLoading } = useStoredLocation(id);
+
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push("/auth/signin");
+    }
+  }, [user, userLoading, router]);
+
+  useEffect(() => {
+    if (!isLoading && !stored && !error) {
+      router.push("/my/stored");
+    }
+  }, [stored, isLoading, error, router]);
+
+  if (userLoading || isLoading) {
+    return (
+      <div className="container mx-auto max-w-6xl py-8 px-4">
+        <p className="text-muted-foreground">Loading storage location...</p>
+      </div>
+    );
   }
 
-  const stored = await getStoredLocationAction(id);
+  if (error) {
+    return (
+      <div className="container mx-auto max-w-6xl py-8 px-4">
+        <p className="text-destructive">
+          Error loading storage location. Please try again.
+        </p>
+      </div>
+    );
+  }
 
   if (!stored) {
-    redirect("/my/stored");
+    return null;
   }
-
-  const getStorageTypeLabel = (type: string) => {
-    switch (type) {
-      case "pantry":
-        return "Pantry";
-      case "fridge":
-        return "Fridge";
-      case "freezer":
-        return "Freezer";
-      default:
-        return type;
-    }
-  };
 
   return (
     <div className="container mx-auto max-w-6xl py-8 px-4">
@@ -50,7 +77,7 @@ export default async function StoredLocationPage({
 
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Stored Ingredients</h2>
-          <StoredIngredientsList storedId={stored.id} ingredients={stored.ingredients} />
+          <StoredIngredientsList storedId={stored.id} />
         </div>
       </div>
     </div>

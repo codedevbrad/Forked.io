@@ -71,6 +71,7 @@ CREATE TABLE "StoredIngredient" (
     "ingredientId" TEXT NOT NULL,
     "quantity" DOUBLE PRECISION NOT NULL,
     "unit" "Unit" NOT NULL,
+    "storeLink" TEXT,
     "expiresAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

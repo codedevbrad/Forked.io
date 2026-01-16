@@ -1,173 +1,144 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BreadcrumbNav, type BreadcrumbItem } from "@/src/components/ui/breadcrumb";
-import { getOrganisation } from "@/src/domains/organisation/db";
-import { getDomain } from "@/src/domains/domain/db";
-import { getWebsite } from "@/src/domains/website/db";
+import { getStoredLocationAction } from "@/src/domains/stored/db";
 import { GoBackButton } from "./goBack";
-
-interface BreadcrumbViewProps {
-  orgid: string;
-}
-
-interface BreadcrumbData {
-  organisationName?: string;
-  domainName?: string;
-  domainId?: string;
-  websiteName?: string;
-  websiteId?: string;
-}
 
 /**
  * BreadcrumbView component that automatically detects the current route
  * and builds breadcrumbs based on the page hierarchy.
  * 
  * Supports routes:
- * - /org/[orgid] - Organisation page
- * - /org/[orgid]/domain/[domainid] - Domain page
- * - /org/[orgid]/domain/[domainid]/website/[websiteid]/edit - Website edit page
+ * - / - Home page
+ * - /my - My Dashboard
+ * - /my/ingredients - Ingredients
+ * - /my/recipes - Recipes
+ * - /my/shop - Shopping Lists
+ * - /my/stored - Stored Locations
+ * - /my/stored/[id] - Individual Storage Location
+ * - /auth/signin - Sign In
+ * - /auth/signup - Sign Up
  */
-export function BreadcrumbView({ orgid }: BreadcrumbViewProps) {
+export function BreadcrumbView() {
   const pathname = usePathname();
-  const [breadcrumbData, setBreadcrumbData] = useState<BreadcrumbData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const params = useParams();
+  const [dynamicName, setDynamicName] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    async function fetchBreadcrumbData() {
-      setIsLoading(true);
-      try {
-        // Parse the pathname to extract route information
-        const pathParts = pathname.split("/").filter(Boolean);
-        
-        const data: BreadcrumbData = {};
-        
-        // Extract domainId and websiteId from pathname
-        const domainIndex = pathParts.indexOf("domain");
-        if (domainIndex !== -1 && pathParts[domainIndex + 1]) {
-          data.domainId = pathParts[domainIndex + 1];
+    async function fetchDynamicData() {
+      // Check if we're on a dynamic route that needs data fetching
+      const pathParts = pathname.split("/").filter(Boolean);
+      
+      // Handle /my/stored/[id] route
+      if (pathParts[0] === "my" && pathParts[1] === "stored" && params?.id) {
+        setIsLoading(true);
+        try {
+          const stored = await getStoredLocationAction(params.id as string);
+          if (stored?.name) {
+            setDynamicName(stored.name);
+          }
+        } catch (error) {
+          console.error("Error fetching stored location:", error);
+        } finally {
+          setIsLoading(false);
         }
-        
-        const websiteIndex = pathParts.indexOf("website");
-        if (websiteIndex !== -1 && pathParts[websiteIndex + 1]) {
-          data.websiteId = pathParts[websiteIndex + 1];
-        }
-
-        // Fetch data based on what we need using server actions
-        const fetchPromises: Promise<void>[] = [];
-        
-        // Always fetch organisation
-        fetchPromises.push(
-          getOrganisation(orgid)
-            .then(org => {
-              if (org) data.organisationName = org.name;
-            })
-            .catch(() => {})
-        );
-
-        // Fetch domain if we have domainId
-        if (data.domainId) {
-          fetchPromises.push(
-            getDomain(data.domainId)
-              .then(domain => {
-                if (domain) {
-                  data.domainName = domain.name;
-                  if (!data.organisationName && domain.organisation) {
-                    data.organisationName = domain.organisation.name;
-                  }
-                }
-              })
-              .catch(() => {})
-          );
-        }
-
-        // Fetch website if we have websiteId
-        if (data.websiteId) {
-          fetchPromises.push(
-            getWebsite(data.websiteId)
-              .then(website => {
-                if (website) {
-                  data.websiteName = website.name;
-                  if (!data.domainName && website.domain) {
-                    data.domainName = website.domain.name;
-                    data.domainId = website.domainId;
-                  }
-                  if (!data.organisationName && website.domain?.organisation) {
-                    data.organisationName = website.domain.organisation.name;
-                  }
-                }
-              })
-              .catch(() => {})
-          );
-        }
-
-        await Promise.all(fetchPromises);
-        setBreadcrumbData(data);
-      } catch (error) {
-        console.error("Error fetching breadcrumb data:", error);
-      } finally {
-        setIsLoading(false);
+      } else {
+        setDynamicName(null);
       }
     }
 
-    fetchBreadcrumbData();
-  }, [pathname, orgid]);
-
-  if (isLoading || !breadcrumbData) {
-    return null;
-  }
+    fetchDynamicData();
+  }, [pathname, params]);
 
   // Build breadcrumb items based on the current route
   const breadcrumbItems: BreadcrumbItem[] = [];
-  
+  const pathParts = pathname.split("/").filter(Boolean);
+
+  // Don't show breadcrumbs on the home page
+  if (pathname === "/") {
+    return null;
+  }
+
   // Always start with Home
   breadcrumbItems.push({
     label: "Home",
     href: "/",
   });
 
-  // Add Organisation breadcrumb
-  if (breadcrumbData.organisationName) {
-    const isOrganisationPage = pathname === `/org/${orgid}`;
+  // Handle /my routes
+  if (pathParts[0] === "my") {
     breadcrumbItems.push({
-      label: breadcrumbData.organisationName,
-      href: isOrganisationPage ? undefined : `/org/${orgid}`,
-    });
-  }
-
-  // Add Domain breadcrumb if we're on a domain or website page
-  if (breadcrumbData.domainName && breadcrumbData.domainId) {
-    const isDomainPage = pathname === `/org/${orgid}/domain/${breadcrumbData.domainId}`;
-    breadcrumbItems.push({
-      label: breadcrumbData.domainName,
-      href: isDomainPage ? undefined : `/org/${orgid}/domain/${breadcrumbData.domainId}`,
-    });
-  }
-
-  // Add Website breadcrumb if we're on a website page
-  if (breadcrumbData.websiteName && breadcrumbData.websiteId && breadcrumbData.domainId) {
-    const isWebsiteEditPage = pathname.includes("/edit");
-    breadcrumbItems.push({
-      label: breadcrumbData.websiteName,
-      href: isWebsiteEditPage ? undefined : `/org/${orgid}/domain/${breadcrumbData.domainId}/website/${breadcrumbData.websiteId}`,
+      label: "My Dashboard",
+      href: pathname === "/my" ? undefined : "/my",
     });
 
-    // Add Edit breadcrumb if we're on the edit page
-    if (isWebsiteEditPage) {
+    // Handle /my/ingredients
+    if (pathParts[1] === "ingredients") {
       breadcrumbItems.push({
-        label: "Edit",
+        label: "Ingredients",
+      });
+    }
+    // Handle /my/recipes
+    else if (pathParts[1] === "recipes") {
+      breadcrumbItems.push({
+        label: "Recipes",
+      });
+    }
+    // Handle /my/shop
+    else if (pathParts[1] === "shop") {
+      breadcrumbItems.push({
+        label: "Shopping Lists",
+      });
+    }
+    // Handle /my/stored
+    else if (pathParts[1] === "stored") {
+      if (pathParts[2]) {
+        // Dynamic route: /my/stored/[id]
+        breadcrumbItems.push({
+          label: "Stored",
+          href: "/my/stored",
+        });
+        if (isLoading) {
+          breadcrumbItems.push({
+            label: "Loading...",
+          });
+        } else if (dynamicName) {
+          breadcrumbItems.push({
+            label: dynamicName,
+          });
+        }
+      } else {
+        // Static route: /my/stored
+        breadcrumbItems.push({
+          label: "Stored",
+        });
+      }
+    }
+  }
+  // Handle /auth routes
+  else if (pathParts[0] === "auth") {
+    if (pathParts[1] === "signin") {
+      breadcrumbItems.push({
+        label: "Sign In",
+      });
+    } else if (pathParts[1] === "signup") {
+      breadcrumbItems.push({
+        label: "Sign Up",
       });
     }
   }
 
+  // Don't show breadcrumbs if we only have Home (shouldn't happen, but just in case)
   if (breadcrumbItems.length <= 1) {
     return null;
   }
 
   return (
-    <div className="flex flex-row gap-4 items-center">
-      <GoBackButton variant="default" text="Back" />
+    <div className="flex flex-row gap-4 items-center mb-4">
+      <GoBackButton variant="ghost" text="Back" />
       <BreadcrumbNav items={breadcrumbItems} />
     </div>
   );

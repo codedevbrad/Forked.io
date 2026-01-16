@@ -200,7 +200,8 @@ export async function addIngredientToStoredAction(
   ingredientId: string,
   quantity: number,
   unit: Unit,
-  expiresAt?: Date | null
+  expiresAt?: Date | null,
+  storeLink?: string | null
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const session = await auth();
@@ -258,6 +259,7 @@ export async function addIngredientToStoredAction(
         quantity,
         unit,
         expiresAt: expiresAt || null,
+        storeLink: storeLink || null,
       },
     });
 
@@ -335,7 +337,8 @@ export async function updateStoredIngredientAction(
   storedIngredientId: string,
   quantity: number,
   unit: Unit,
-  expiresAt?: Date | null
+  expiresAt?: Date | null,
+  storeLink?: string | null
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const session = await auth();
@@ -374,6 +377,7 @@ export async function updateStoredIngredientAction(
         quantity,
         unit,
         expiresAt: expiresAt || null,
+        storeLink: storeLink || null,
       },
     });
 

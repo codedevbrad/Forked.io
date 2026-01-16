@@ -64,7 +64,7 @@ export function StoredForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <label htmlFor="name" className="text-sm font-medium">
-          Storage Name
+          Storage Name 
         </label>
         <Input
           id="name"

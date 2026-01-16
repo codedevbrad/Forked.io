@@ -7,7 +7,7 @@ import {
   removeIngredientFromStoredAction, 
   updateStoredIngredientAction 
 } from "@/src/domains/stored/db";
-import { useStored } from "@/src/domains/stored/_contexts/useStored";
+import { useStoredLocation } from "@/src/domains/stored/_contexts/useStored";
 import { Trash2, Pencil } from "lucide-react";
 import { Unit } from "@prisma/client";
 import { StoredIngredientForm } from "./stored-ingredient-form";
@@ -22,19 +22,19 @@ type StoredIngredient = {
   quantity: number;
   unit: Unit;
   expiresAt: Date | null;
+  storeLink: string | null;
 };
 
 type StoredIngredientsListProps = {
   storedId: string;
-  ingredients: StoredIngredient[];
 };
 
 function getUnitLabel(unit: Unit): string {
   return unit;
 }
 
-export function StoredIngredientsList({ storedId, ingredients }: StoredIngredientsListProps) {
-  const { mutate } = useStored();
+export function StoredIngredientsList({ storedId }: StoredIngredientsListProps) {
+  const { data: stored, error, isLoading, mutate } = useStoredLocation(storedId);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -62,6 +62,24 @@ export function StoredIngredientsList({ storedId, ingredients }: StoredIngredien
   const handleEditSuccess = () => {
     setEditingId(null);
   };
+
+  if (isLoading) {
+    return (
+      <p className="text-muted-foreground">
+        Loading ingredients...
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="text-destructive">
+        Error loading ingredients. Please try again.
+      </p>
+    );
+  }
+
+  const ingredients = stored?.ingredients || [];
 
   if (ingredients.length === 0) {
     return (
@@ -95,6 +113,7 @@ export function StoredIngredientsList({ storedId, ingredients }: StoredIngredien
                 initialQuantity={storedIngredient.quantity}
                 initialUnit={storedIngredient.unit}
                 initialExpiresAt={storedIngredient.expiresAt}
+                initialStoreLink={storedIngredient.storeLink}
                 onSuccess={handleEditSuccess}
                 onCancel={() => setEditingId(null)}
               />
@@ -110,6 +129,18 @@ export function StoredIngredientsList({ storedId, ingredients }: StoredIngredien
                   {storedIngredient.expiresAt && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Expires: {new Date(storedIngredient.expiresAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  {storedIngredient.storeLink && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      <a 
+                        href={storedIngredient.storeLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Store Link
+                      </a>
                     </p>
                   )}
                 </div>

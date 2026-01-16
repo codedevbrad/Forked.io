@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/src/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/src/components/ui/popover";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/src/components/ui/dialog";
 import { AddIngredientToStoredForm } from "./add-ingredient-to-stored-form";
 import { Plus } from "lucide-react";
 
@@ -18,24 +18,22 @@ export function AddIngredientToStoredPopover({ storedId }: AddIngredientToStored
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <Button>
           <Plus className="w-4 h-4 mr-2" />
           Add Ingredient
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80" align="start">
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-semibold text-lg">Add Ingredient to Storage</h3>
-            <p className="text-sm text-muted-foreground">
-              Add an ingredient to this storage location
-            </p>
-          </div>
-          <AddIngredientToStoredForm storedId={storedId} onSuccess={handleSuccess} onCancel={() => setOpen(false)} />
-        </div>
-      </PopoverContent>
-    </Popover>
+      </DialogTrigger>
+      <DialogContent className="w-96 max-w-[calc(100%-2rem)]">
+        <DialogHeader>
+          <DialogTitle>Add Ingredient to Storage</DialogTitle>
+          <DialogDescription>
+            Add an ingredient to this storage location
+          </DialogDescription>
+        </DialogHeader>
+        <AddIngredientToStoredForm storedId={storedId} onSuccess={handleSuccess} onCancel={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
   );
 }

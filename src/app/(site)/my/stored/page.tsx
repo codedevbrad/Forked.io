@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { StoredList } from "./_components/stored-list";
+import { auth } from "@/auth"; 
 import { CreateStoredPopover } from "./_components/create-stored-popover";
+import { StorageRoomCanvas } from "./_components/storage-room-canvas";
 
 export default async function StoredPage() {
   const session = await auth();
@@ -24,8 +24,8 @@ export default async function StoredPage() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Your Storage Locations</h2>
-          <StoredList />
+          <h2 className="text-xl font-semibold">Storage Room</h2>
+          <StorageRoomCanvas />
         </div>
       </div>
     </div>

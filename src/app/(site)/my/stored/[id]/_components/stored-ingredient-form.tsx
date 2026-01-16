@@ -5,7 +5,7 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { updateStoredIngredientAction } from "@/src/domains/stored/db";
-import { useStored } from "@/src/domains/stored/_contexts/useStored";
+import { useStoredLocation, useStored } from "@/src/domains/stored/_contexts/useStored";
 import { Unit } from "@prisma/client";
 
 type StoredIngredientFormProps = {
@@ -15,6 +15,7 @@ type StoredIngredientFormProps = {
   initialQuantity: number;
   initialUnit: Unit;
   initialExpiresAt: Date | null;
+  initialStoreLink?: string | null;
   onSuccess?: () => void;
   onCancel?: () => void;
 };
@@ -26,15 +27,18 @@ export function StoredIngredientForm({
   initialQuantity,
   initialUnit,
   initialExpiresAt,
+  initialStoreLink,
   onSuccess,
   onCancel,
 }: StoredIngredientFormProps) {
-  const { mutate } = useStored();
+  const { mutate: mutateLocation } = useStoredLocation(storedId);
+  const { mutate: mutateAll } = useStored();
   const [quantity, setQuantity] = useState(initialQuantity.toString());
   const [unit, setUnit] = useState<Unit>(initialUnit);
   const [expiresAt, setExpiresAt] = useState(
     initialExpiresAt ? new Date(initialExpiresAt).toISOString().split("T")[0] : ""
   );
+  const [storeLink, setStoreLink] = useState(initialStoreLink || "");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -44,7 +48,8 @@ export function StoredIngredientForm({
     setExpiresAt(
       initialExpiresAt ? new Date(initialExpiresAt).toISOString().split("T")[0] : ""
     );
-  }, [initialQuantity, initialUnit, initialExpiresAt]);
+    setStoreLink(initialStoreLink || "");
+  }, [initialQuantity, initialUnit, initialExpiresAt, initialStoreLink]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,13 +67,15 @@ export function StoredIngredientForm({
         storedIngredientId,
         quantityNum,
         unit,
-        expiresAtDate
+        expiresAtDate,
+        storeLink || null
       );
 
       if (!result.success) {
         setError(result.error);
       } else {
-        await mutate();
+        await mutateLocation();
+        await mutateAll();
         onSuccess?.();
       }
     });
@@ -125,6 +132,19 @@ export function StoredIngredientForm({
           value={expiresAt}
           onChange={(e) => setExpiresAt(e.target.value)}
           disabled={isPending}
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="storeLink" className="text-sm font-medium">
+          Store Link (optional)
+        </label>
+        <Input
+          id="storeLink"
+          type="url"
+          value={storeLink}
+          onChange={(e) => setStoreLink(e.target.value)}
+          disabled={isPending}
+          placeholder="e.g., https://store.com/product"
         />
       </div>
       {error && (
