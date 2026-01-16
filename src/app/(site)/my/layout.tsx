@@ -12,8 +12,8 @@ export default async function MyLayout({
         redirect("/auth/signin");
     }
   return (
-    <div className="h-full overflow-y-auto">
+    <>
       {children}
-    </div>
+    </>
   );
 }

@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { IngredientForm } from "@/src/domains/ingredients/_components/ingredient-form";
 import { deleteIngredientAction } from "@/src/domains/ingredients/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
-import { Trash2, Pencil } from "lucide-react";
+import { Trash2, Pencil, ExternalLink } from "lucide-react";
 
 type Ingredient = {
   id: string;
@@ -14,6 +14,7 @@ type Ingredient = {
   type: string;
   storageType: string | null;
   tag: Array<{ id: string; name: string; color: string }>;
+  storeLinks?: Array<{ id: string; url: string }>;
 };
 
 type IngredientsListProps = {
@@ -106,6 +107,7 @@ export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
                 initialType={ingredient.type as any}
                 initialStorageType={ingredient.storageType as any}
                 initialTagIds={ingredient.tag.map(t => t.id)}
+                initialStoreLinks={ingredient.storeLinks?.map(sl => sl.url) || []}
                 onSuccess={handleEditSuccess}
                 onCancel={() => setEditingId(null)}
               />
@@ -154,6 +156,22 @@ export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
                       />
                       {tag.name}
                     </span>
+                  ))}
+                </div>
+              )}
+              {ingredient.storeLinks && ingredient.storeLinks.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {ingredient.storeLinks.map((storeLink) => (
+                    <a
+                      key={storeLink.id}
+                      href={storeLink.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Store Link
+                    </a>
                   ))}
                 </div>
               )}

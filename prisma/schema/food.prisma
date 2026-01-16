@@ -35,12 +35,22 @@ model Tag {
 }
 
 
+model StoreLink {
+  id String @id @default(cuid())
+  url String
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredientId String
+}
+
+
 model Ingredient {
   id String @id @default(cuid())
   name String
   type IngredientType
   storageType StorageType?
   tag Tag[]
+
+  storeLinks StoreLink[]
 
   user User @relation(fields: [userId], references: [id])
   userId String
@@ -59,6 +69,8 @@ model Ingredient {
 model Recipe {
   id String @id @default(cuid())
   name String
+
+  originalUrl String?
 
   ingredients RecipeIngredient[]
 

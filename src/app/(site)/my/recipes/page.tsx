@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { RecipesList } from "./_components/recipes-list";
 import { CreateRecipePopover } from "./_components/create-recipe-popover";
+import { ImportRecipeDialog } from "./_components/import-recipe-dialog";
 
 export default async function RecipesPage() {
   const session = await auth();
@@ -20,7 +21,10 @@ export default async function RecipesPage() {
               Create and manage your recipes. Add ingredients and quantities to build your recipe collection.
             </p>
           </div>
-          <CreateRecipePopover />
+          <div className="flex gap-2">
+            <ImportRecipeDialog />
+            <CreateRecipePopover />
+          </div>
         </div>
 
         <div className="space-y-4">

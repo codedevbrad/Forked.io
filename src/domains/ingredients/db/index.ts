@@ -9,7 +9,8 @@ export async function createIngredientAction(
   name: string,
   type: IngredientType,
   storageType?: StorageType | null,
-  tagIds?: string[]
+  tagIds?: string[],
+  storeLinks?: string[]
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -59,9 +60,15 @@ export async function createIngredientAction(
         tag: tagIds && tagIds.length > 0 ? {
           connect: tagIds.map(id => ({ id }))
         } : undefined,
+        storeLinks: storeLinks && storeLinks.length > 0 ? {
+          create: storeLinks.filter(url => url.trim().length > 0).map(url => ({
+            url: url.trim(),
+          }))
+        } : undefined,
       },
       include: {
         tag: true,
+        storeLinks: true,
       },
     });
 
@@ -77,7 +84,8 @@ export async function updateIngredientAction(
   name: string,
   type?: IngredientType,
   storageType?: StorageType | null,
-  tagIds?: string[]
+  tagIds?: string[],
+  storeLinks?: string[]
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -148,11 +156,27 @@ export async function updateIngredientAction(
       };
     }
 
+    if (storeLinks !== undefined) {
+      // Delete existing storeLinks and create new ones
+      await prisma.storeLink.deleteMany({
+        where: { ingredientId: id },
+      });
+      
+      if (storeLinks.length > 0) {
+        updateData.storeLinks = {
+          create: storeLinks.filter(url => url.trim().length > 0).map(url => ({
+            url: url.trim(),
+          })),
+        };
+      }
+    }
+
     const ingredient = await prisma.ingredient.update({
       where: { id },
       data: updateData,
       include: {
         tag: true,
+        storeLinks: true,
       },
     });
 
@@ -198,6 +222,11 @@ export async function deleteIngredientAction(id: string): Promise<ActionResult> 
 
       // Delete from shopping list ingredients
       await tx.shoppingListIngredient.deleteMany({
+        where: { ingredientId: id },
+      });
+
+      // Delete store links
+      await tx.storeLink.deleteMany({
         where: { ingredientId: id },
       });
 
@@ -250,6 +279,7 @@ export async function getIngredientsAction() {
       },
       include: {
         tag: true,
+        storeLinks: true,
       },
       orderBy: {
         name: "asc",
@@ -285,6 +315,7 @@ export async function getIngredientAction(id: string) {
       },
       include: {
         tag: true,
+        storeLinks: true,
       },
     });
 

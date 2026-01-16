@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { IngredientsList } from "./_components/ingredients-list";
 import { CreateIngredientPopover } from "./_components/create-ingredient-popover";
 import { IngredientsFilter } from "./_components/ingredients-filter";
-import { TagsDisplay } from "./_components/tags-display";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useUser } from "@/src/domains/user/_contexts/useUser";
 
@@ -15,6 +14,7 @@ type Ingredient = {
   type: string;
   storageType: string | null;
   tag: Array<{ id: string; name: string; color: string }>;
+  storeLinks?: Array<{ id: string; url: string }>;
 };
 
 export default function IngredientsPage() {

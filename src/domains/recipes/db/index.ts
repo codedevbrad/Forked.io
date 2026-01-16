@@ -3,7 +3,9 @@
 import { prisma } from "@/src/lib/db";
 import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
-import { Unit } from "@prisma/client";
+import { Unit, IngredientType } from "@prisma/client";
+import { scrapeRecipeFromUrl } from "@/src/services/scraper";
+import { extractRecipeData } from "@/src/services/openai";
 
 export type RecipeIngredientInput = {
   ingredientId: string;
@@ -242,5 +244,95 @@ export async function getRecipeAction(id: string) {
   } catch (error) {
     console.error("Get recipe error:", error);
     return null;
+  }
+}
+
+/**
+ * Imports a recipe from a URL by scraping it and extracting ingredients with OpenAI
+ */
+export async function importRecipeFromUrlAction(
+  url: string
+): Promise<ActionResult<{ id: string; name: string }>> {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!url || url.trim().length === 0) {
+      return { success: false, error: "URL is required" };
+    }
+
+    // Step 1: Scrape the recipe from URL
+    const scrapedContent = await scrapeRecipeFromUrl(url.trim());
+
+    // Step 2: Extract recipe data using OpenAI
+    const extractedData = await extractRecipeData(scrapedContent);
+
+    if (!extractedData.name || extractedData.ingredients.length === 0) {
+      return { 
+        success: false, 
+        error: "Could not extract recipe name or ingredients from the URL" 
+      };
+    }
+
+    // Step 3: Create or find ingredients and build recipe ingredient inputs
+    const recipeIngredients: RecipeIngredientInput[] = [];
+    const userId = session.user.id as string;
+
+    for (const extractedIng of extractedData.ingredients) {
+      // Try to find existing ingredient
+      let ingredient = await prisma.ingredient.findUnique({
+        where: {
+          userId_name: {
+            userId,
+            name: extractedIng.name,
+          },
+        },
+      });
+
+      // If not found, create it (default to "food" type)
+      if (!ingredient) {
+        ingredient = await prisma.ingredient.create({
+          data: {
+            name: extractedIng.name,
+            type: IngredientType.food,
+            userId,
+          },
+        });
+      }
+
+      recipeIngredients.push({
+        ingredientId: ingredient.id,
+        quantity: extractedIng.quantity,
+        unit: extractedIng.unit,
+      });
+    }
+
+    // Step 4: Create the recipe
+    const recipe = await prisma.recipe.create({
+      data: {
+        name: extractedData.name,
+        originalUrl: url.trim(),
+        userId,
+        ingredients: {
+          create: recipeIngredients.map((ing) => ({
+            ingredientId: ing.ingredientId,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          })),
+        },
+      },
+    });
+
+    return { success: true, data: { id: recipe.id, name: recipe.name } };
+  } catch (error) {
+    console.error("Import recipe from URL error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { 
+      success: false, 
+      error: `Failed to import recipe: ${errorMessage}` 
+    };
   }
 }

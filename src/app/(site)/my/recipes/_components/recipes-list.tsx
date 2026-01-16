@@ -7,24 +7,8 @@ import { RecipeForm } from "@/src/domains/recipes/_components/recipe-form";
 import { deleteRecipeAction } from "@/src/domains/recipes/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
 import { Trash2, Pencil } from "lucide-react";
-import { Unit } from "@prisma/client";
-
-type RecipeIngredient = {
-  id: string;
-  ingredientId: string;
-  ingredient: {
-    id: string;
-    name: string;
-  };
-  quantity: number;
-  unit: Unit;
-};
-
-type Recipe = {
-  id: string;
-  name: string;
-  ingredients: RecipeIngredient[];
-};
+import Link from "next/link";
+import { RecipeIngredientsPopover } from "./recipe-ingredients-popover";
 
 export function RecipesList() {
   const { data: recipes, isLoading, error, mutate } = useRecipes();
@@ -108,7 +92,15 @@ export function RecipesList() {
           ) : (
             <div className="p-4 border rounded-lg space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg">{recipe.name}</h3>
+               
+                <div className="font-semibold text-lg flex flex-row items-center gap-4">
+                  <h3> {recipe.name}   </h3>  
+                  {recipe.originalUrl && (
+                  <Link href={recipe.originalUrl} target="_blank" className="text-sm text-muted-foreground underline"> 
+                    View Original Recipe 
+                  </Link>
+                   )}
+                </div>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -131,19 +123,12 @@ export function RecipesList() {
                   </Button>
                 </div>
               </div>
-              {recipe.ingredients && recipe.ingredients.length > 0 ? (
-                <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-                  {recipe.ingredients.map((ri) => (
-                    <li key={ri.id}>
-                      • {ri.quantity} {ri.unit} {ri.ingredient.name}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground ml-4">
-                  No ingredients added yet.
-                </p>
-              )}
+
+              <div className="flex items-center gap-2">
+             
+                <RecipeIngredientsPopover ingredients={recipe.ingredients} />
+              </div>
+
             </div>
           )}
         </div>
