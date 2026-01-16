@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthSessionProvider } from "@/src/components/providers/session-provider";
 import { Header } from "@/src/components/custom/header";
 import { BreadcrumbView } from "@/src/components/custom/breadcrumb-view";
+import { TopBar } from "@/src/components/custom/top-bar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Forked.IO",
+  title: "Forked.io",
   description: "PublishOS is a platform for building and publishing websites.",
 };
 
@@ -33,6 +34,8 @@ export default function RootLayout({
         <AuthSessionProvider>
           {/* App Shell */}
           <div className="flex flex-col h-screen bg-[#FDFFFC]">
+            {/* Top Bar */}
+            <TopBar />
             {/* Header takes natural height */}
             <Header />
 
