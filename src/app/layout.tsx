@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionProvider } from "@/src/components/providers/session-provider";
-import { Header } from "@/src/components/custom/header";
-import { BreadcrumbView } from "@/src/components/custom/breadcrumb-view";
+import { Header } from "@/src/components/custom/header"; 
 import { TopBar } from "@/src/components/custom/top-bar";
 
 const geistSans = Geist({
@@ -41,7 +40,6 @@ export default function RootLayout({
 
             {/* Content fills remaining space */}
             <main className="flex-1 overflow-hidden p-3">
-              <BreadcrumbView />
               {children}
             </main>
           </div>

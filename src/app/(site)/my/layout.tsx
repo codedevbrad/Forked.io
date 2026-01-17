@@ -1,5 +1,5 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+import { auth } from "@/auth"; 
+import { BreadcrumbView } from "@/src/components/custom/breadcrumb-view";
 
 export default async function MyLayout({
   children,
@@ -7,12 +7,11 @@ export default async function MyLayout({
   children: React.ReactNode;
 }) {
 
-    const session = await auth();
-    if (!session) {
-        redirect("/auth/signin");
-    }
+  const session = await auth();
+ 
   return (
     <>
+      {session && <BreadcrumbView />}
       {children}
     </>
   );

@@ -7,7 +7,7 @@ export default async function ShopPage() {
   const session = await auth();
   
   if (!session?.user?.id) {
-    redirect("/auth/signin");
+    redirect("/my/shop/what");
   }
 
   return (

@@ -7,13 +7,13 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Protect /my routes - require authentication
-  if (pathname.startsWith("/my")) {
-    if (!session) {
-      const signInUrl = new URL("/auth/signin", request.url);
-      signInUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(signInUrl);
-    }
-  }
+  // if (pathname.startsWith("/my")) {
+  //   if (!session) {
+  //     const signInUrl = new URL("/auth/signin", request.url);
+  //     signInUrl.searchParams.set("callbackUrl", pathname);
+  //     return NextResponse.redirect(signInUrl);
+  //   }
+  // }
 
   return NextResponse.next();
 }

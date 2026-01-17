@@ -8,7 +8,7 @@ export default async function RecipesPage() {
   const session = await auth();
   
   if (!session?.user?.id) {
-    redirect("/auth/signin");
+    redirect("/my/recipes/what");
   }
 
   return (

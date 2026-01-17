@@ -26,7 +26,7 @@ export function SignInForm() {
       } else {
         // Revalidate the user cache to update the header
         await mutate("user");
-        router.push("/org/");
+        router.push("/my/");
         router.refresh();
       }
     });

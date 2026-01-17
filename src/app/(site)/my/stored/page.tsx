@@ -7,7 +7,7 @@ export default async function StoredPage() {
   const session = await auth();
   
   if (!session?.user?.id) {
-    redirect("/auth/signin");
+    redirect("/my/stored/what");
   }
 
   return (

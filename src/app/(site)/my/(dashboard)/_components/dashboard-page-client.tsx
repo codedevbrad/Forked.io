@@ -1,7 +1,5 @@
 "use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+  
 import { useUser } from "@/src/domains/user/_contexts/useUser";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
@@ -12,19 +10,12 @@ import Link from "next/link";
 import { Button } from "@/src/components/ui/button";
 import { Package, ChefHat, ShoppingCart, Box, Tag } from "lucide-react";
 
-export default function MyPage() {
-  const router = useRouter();
+export default function DashboardPageClient() { 
   const { data: user, isLoading: userLoading } = useUser();
   const { data: ingredients, isLoading: ingredientsLoading } = useIngredients();
   const { data: recipes, isLoading: recipesLoading } = useRecipes();
   const { data: stored, isLoading: storedLoading } = useStored();
   const { data: shoppingLists, isLoading: shoppingListsLoading } = useShoppingLists();
-
-  useEffect(() => {
-    if (!userLoading && !user) {
-      router.push("/auth/signin");
-    }
-  }, [user, userLoading, router]);
 
   const isLoading = userLoading || ingredientsLoading || recipesLoading || storedLoading || shoppingListsLoading;
 
