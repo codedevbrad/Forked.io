@@ -21,7 +21,7 @@ export function CreateRecipePopover() {
           Create Recipe
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-96 max-w-[calc(100%-2rem)] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-[100%] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Recipe</DialogTitle>
           <DialogDescription>

@@ -9,7 +9,7 @@ Domains are self-contained modules that organize related functionality, data acc
 ```
 src/domains/
   {domain-name}/
-    / _components/          # Domain-specific React components
+    / _components/          # Domain-specific React reusable components for that domain.
     / _contexts/            # SWR hooks for data fetching
     / _documentation/       # Domain-specific docs (optional)
     / db/                   # Server actions and database operations

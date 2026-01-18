@@ -4,16 +4,19 @@ import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { IngredientForm } from "@/src/domains/ingredients/_components/ingredient-form";
+import { IngredientCard } from "@/src/domains/ingredients/_components/ingredient";
 import { deleteIngredientAction } from "@/src/domains/ingredients/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { Trash2, Pencil, ExternalLink } from "lucide-react";
+import { IngredientType, StorageType } from "@prisma/client";
 
 type Ingredient = {
   id: string;
   name: string;
-  type: string;
-  storageType: string | null;
+  type: IngredientType;
+  storageType: StorageType | null;
   tag: Array<{ id: string; name: string; color: string }>;
+  category: { id: string; name: string; color: string; icon?: string | null } | null;
   storeLinks?: Array<{ id: string; url: string }>;
 };
 
@@ -98,87 +101,68 @@ export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
       />
       <div className="space-y-2 grid grid-cols-3 gap-4">
         {ingredients.map((ingredient) => (
-        <div key={ingredient.id}>
-          {editingId === ingredient.id ? (
-            <div className="p-4 border rounded-lg space-y-2">
-              <IngredientForm
-                ingredientId={ingredient.id}
-                initialName={ingredient.name}
-                initialType={ingredient.type as any}
-                initialStorageType={ingredient.storageType as any}
-                initialTagIds={ingredient.tag.map(t => t.id)}
-                initialStoreLinks={ingredient.storeLinks?.map(sl => sl.url) || []}
-                onSuccess={handleEditSuccess}
-                onCancel={() => setEditingId(null)}
-              />
-            </div>
-          ) : (
-            <div className="p-3 border rounded-lg space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{ingredient.name}</span>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingId(ingredient.id)}
-                    disabled={isPending}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteClick(ingredient.id)}
-                    disabled={isPending}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+          <div key={ingredient.id} className="relative group">
+            <IngredientCard
+              ingredient={ingredient}
+              isEditing={editingId === ingredient.id}
+              editComponent={
+                editingId === ingredient.id ? (
+                  <IngredientForm
+                    ingredientId={ingredient.id}
+                    initialName={ingredient.name}
+                    initialType={ingredient.type}
+                    initialStorageType={ingredient.storageType}
+                    initialCategoryId={ingredient.category?.id || null}
+                    initialTagIds={ingredient.tag.map(t => t.id)}
+                    initialStoreLinks={ingredient.storeLinks?.map(sl => sl.url) || []}
+                    onSuccess={handleEditSuccess}
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : undefined
+              }
+            />
+            {editingId !== ingredient.id && (
+              <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingId(ingredient.id)}
+                  disabled={isPending}
+                  className="h-7 w-7 p-0"
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteClick(ingredient.id)}
+                  disabled={isPending}
+                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
-              {ingredient.tag && ingredient.tag.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {ingredient.tag.map((tag) => (
-                    <span
-                      key={tag.id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium"
-                      style={{
-                        backgroundColor: `${tag.color}20`,
-                        color: tag.color,
-                        border: `1px solid ${tag.color}40`,
-                      }}
-                    >
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: tag.color }}
-                      />
-                      {tag.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {ingredient.storeLinks && ingredient.storeLinks.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {ingredient.storeLinks.map((storeLink) => (
-                    <a
-                      key={storeLink.id}
-                      href={storeLink.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      Store Link
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
+            )}
+            {ingredient.storeLinks && ingredient.storeLinks.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {ingredient.storeLinks.map((storeLink) => (
+                  <a
+                    key={storeLink.id}
+                    href={storeLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Store Link
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </>
   );

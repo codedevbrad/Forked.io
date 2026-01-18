@@ -179,7 +179,12 @@ export async function getStoredLocationAction(id: string) {
       include: {
         ingredients: {
           include: {
-            ingredient: true,
+            ingredient: {
+              include: {
+                tag: true,
+                category: true,
+              },
+            },
           },
           orderBy: {
             createdAt: "desc",

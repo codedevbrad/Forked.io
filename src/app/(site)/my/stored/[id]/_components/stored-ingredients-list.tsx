@@ -4,26 +4,13 @@ import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { 
-  removeIngredientFromStoredAction, 
-  updateStoredIngredientAction 
+  removeIngredientFromStoredAction
 } from "@/src/domains/stored/db";
 import { useStoredLocation } from "@/src/domains/stored/_contexts/useStored";
 import { Trash2, Pencil } from "lucide-react";
 import { Unit } from "@prisma/client";
 import { StoredIngredientForm } from "./stored-ingredient-form";
-
-type StoredIngredient = {
-  id: string;
-  ingredientId: string;
-  ingredient: {
-    id: string;
-    name: string;
-  };
-  quantity: number;
-  unit: Unit;
-  expiresAt: Date | null;
-  storeLink: string | null;
-};
+import { IngredientCard } from "@/src/domains/ingredients/_components/ingredient";
 
 type StoredIngredientsListProps = {
   storedId: string;
@@ -104,47 +91,28 @@ export function StoredIngredientsList({ storedId }: StoredIngredientsListProps) 
       <div className="space-y-4">
         {ingredients.map((storedIngredient) => (
         <div key={storedIngredient.id}>
-          {editingId === storedIngredient.id ? (
-            <div className="p-4 border rounded-lg space-y-2">
-              <StoredIngredientForm
-                storedId={storedId}
-                storedIngredientId={storedIngredient.id}
-                initialIngredientId={storedIngredient.ingredientId}
-                initialQuantity={storedIngredient.quantity}
-                initialUnit={storedIngredient.unit}
-                initialExpiresAt={storedIngredient.expiresAt}
-                initialStoreLink={storedIngredient.storeLink}
-                onSuccess={handleEditSuccess}
-                onCancel={() => setEditingId(null)}
-              />
-            </div>
-          ) : (
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="font-semibold">{storedIngredient.ingredient.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {storedIngredient.quantity} {getUnitLabel(storedIngredient.unit)}
-                  </p>
-                  {storedIngredient.expiresAt && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Expires: {new Date(storedIngredient.expiresAt).toLocaleDateString()}
-                    </p>
-                  )}
-                  {storedIngredient.storeLink && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      <a 
-                        href={storedIngredient.storeLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        Store Link
-                      </a>
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2">
+          <IngredientCard
+            ingredient={storedIngredient.ingredient}
+            className="p-4"
+            isEditing={editingId === storedIngredient.id}
+            editComponent={
+              editingId === storedIngredient.id ? (
+                <StoredIngredientForm
+                  storedId={storedId}
+                  storedIngredientId={storedIngredient.id}
+                  initialIngredientId={storedIngredient.ingredientId}
+                  initialQuantity={storedIngredient.quantity}
+                  initialUnit={storedIngredient.unit}
+                  initialExpiresAt={storedIngredient.expiresAt}
+                  initialStoreLink={storedIngredient.storeLink}
+                  onSuccess={handleEditSuccess}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : undefined
+            }
+            actions={
+              editingId !== storedIngredient.id ? (
+                <>
                   <Button
                     type="button"
                     variant="ghost"
@@ -164,10 +132,35 @@ export function StoredIngredientsList({ storedId }: StoredIngredientsListProps) 
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
-                </div>
+                </>
+              ) : undefined
+            }
+          >
+            {editingId !== storedIngredient.id && (
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  {storedIngredient.quantity} {getUnitLabel(storedIngredient.unit)}
+                </p>
+                {storedIngredient.expiresAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Expires: {new Date(storedIngredient.expiresAt).toLocaleDateString()}
+                  </p>
+                )}
+                {storedIngredient.storeLink && (
+                  <p className="text-xs text-muted-foreground">
+                    <a 
+                      href={storedIngredient.storeLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      Store Link
+                    </a>
+                  </p>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </IngredientCard>
         </div>
       ))}
       </div>

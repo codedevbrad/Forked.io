@@ -25,6 +25,7 @@ enum IngredientType {
 }
 
 
+
 model Tag {
   id String @id @default(cuid())
   name String
@@ -46,12 +47,29 @@ model StoreLink {
 }
 
 
+
+model Category {
+  id String @id @default(cuid())
+  name String @unique
+  color String
+  icon String? // Optional icon identifier (e.g., "meat", "fish", "veg")
+  
+  ingredients Ingredient[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
 model Ingredient {
   id String @id @default(cuid())
   name String
   type IngredientType
   storageType StorageType?
   tag Tag[]
+
+  category Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?
 
   storeLinks StoreLink[]
 
@@ -167,3 +185,5 @@ model ShoppingListIngredient {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+

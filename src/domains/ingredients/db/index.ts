@@ -9,6 +9,7 @@ export async function createIngredientAction(
   name: string,
   type: IngredientType,
   storageType?: StorageType | null,
+  categoryId?: string | null,
   tagIds?: string[],
   storeLinks?: string[]
 ): Promise<ActionResult<{ id: string; name: string }>> {
@@ -37,6 +38,17 @@ export async function createIngredientAction(
       return { success: false, error: "Ingredient already exists" };
     }
 
+    // Verify category exists if categoryId provided
+    if (categoryId) {
+      const category = await prisma.category.findUnique({
+        where: { id: categoryId },
+      });
+
+      if (!category) {
+        return { success: false, error: "Category not found" };
+      }
+    }
+
     // Verify tag ownership if tagIds provided
     if (tagIds && tagIds.length > 0) {
       const tags = await prisma.tag.findMany({
@@ -56,6 +68,7 @@ export async function createIngredientAction(
         name: name.trim(),
         type,
         storageType: storageType || null,
+        categoryId: categoryId || null,
         userId: session.user.id as string,
         tag: tagIds && tagIds.length > 0 ? {
           connect: tagIds.map(id => ({ id }))
@@ -67,6 +80,7 @@ export async function createIngredientAction(
         } : undefined,
       },
       include: {
+        category: true,
         tag: true,
         storeLinks: true,
       },
@@ -84,6 +98,7 @@ export async function updateIngredientAction(
   name: string,
   type?: IngredientType,
   storageType?: StorageType | null,
+  categoryId?: string | null,
   tagIds?: string[],
   storeLinks?: string[]
 ): Promise<ActionResult<{ id: string; name: string }>> {
@@ -124,6 +139,19 @@ export async function updateIngredientAction(
       return { success: false, error: "An ingredient with this name already exists" };
     }
 
+    // Verify category exists if categoryId provided
+    if (categoryId !== undefined) {
+      if (categoryId) {
+        const category = await prisma.category.findUnique({
+          where: { id: categoryId },
+        });
+
+        if (!category) {
+          return { success: false, error: "Category not found" };
+        }
+      }
+    }
+
     // Verify tag ownership if tagIds provided
     if (tagIds && tagIds.length > 0) {
       const tags = await prisma.tag.findMany({
@@ -148,6 +176,10 @@ export async function updateIngredientAction(
 
     if (storageType !== undefined) {
       updateData.storageType = storageType || null;
+    }
+
+    if (categoryId !== undefined) {
+      updateData.categoryId = categoryId || null;
     }
 
     if (tagIds !== undefined) {
@@ -175,6 +207,7 @@ export async function updateIngredientAction(
       where: { id },
       data: updateData,
       include: {
+        category: true,
         tag: true,
         storeLinks: true,
       },
@@ -278,6 +311,7 @@ export async function getIngredientsAction() {
         userId: session.user.id as string,
       },
       include: {
+        category: true,
         tag: true,
         storeLinks: true,
       },
@@ -314,6 +348,7 @@ export async function getIngredientAction(id: string) {
         userId: session.user.id as string,
       },
       include: {
+        category: true,
         tag: true,
         storeLinks: true,
       },
