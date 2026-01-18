@@ -4,18 +4,23 @@ import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/src/components/ui/dialog";
-import { importRecipeFromUrlAction } from "@/src/domains/recipes/db";
+import { previewRecipeFromUrlAction, savePreviewedRecipeAction } from "@/src/domains/recipes/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
-import { Link2, Loader2 } from "lucide-react";
+import { Link2, Loader2, CheckCircle2, Circle } from "lucide-react";
+import type { ExtractedIngredient } from "@/src/services/openai";
 
 type ImportRecipeDialogProps = {
   onSuccess?: () => void;
 };
 
+type ImportStep = "idle" | "fetching" | "finding" | "creating" | "success";
+
 export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
+  const [step, setStep] = useState<ImportStep>("idle");
+  const [previewData, setPreviewData] = useState<{ name: string; ingredients: ExtractedIngredient[] } | null>(null);
   const [isPending, startTransition] = useTransition();
   const { mutate } = useRecipes();
 
@@ -34,18 +39,70 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
     }
 
     setError("");
+    setPreviewData(null);
+    setStep("fetching");
+
     startTransition(async () => {
-      const result = await importRecipeFromUrlAction(url.trim());
-      
-      if (!result.success) {
-        setError(result.error);
-      } else {
-        setUrl("");
-        setOpen(false);
-        await mutate();
-        onSuccess?.();
+      try {
+        // Step 1: Fetching from the site
+        setStep("fetching");
+        const previewResult = await previewRecipeFromUrlAction(url.trim());
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        if (!previewResult.success) {
+          setError(previewResult.error);
+          setStep("idle");
+          return;
+        }
+
+        // Step 2: Finding ingredients
+        setStep("finding");
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Step 3: Creating a recipe (preparing data)
+        setStep("creating");
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Step 4: Success - show preview
+        setPreviewData(previewResult.data!);
+        setStep("success");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An unexpected error occurred");
+        setStep("idle");
       }
     });
+  };
+
+  const handleAccept = () => {
+    if (!previewData) return;
+
+    startTransition(async () => {
+      const result = await savePreviewedRecipeAction(
+        previewData.name,
+        previewData.ingredients,
+        url.trim()
+      );
+
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+
+      setUrl("");
+      setPreviewData(null);
+      setStep("idle");
+      setOpen(false);
+      await mutate();
+      onSuccess?.();
+    });
+  };
+
+  const handleCancel = () => {
+    setUrl("");
+    setPreviewData(null);
+    setStep("idle");
+    setError("");
+    setOpen(false);
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -53,7 +110,13 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
     if (!newOpen) {
       setUrl("");
       setError("");
+      setPreviewData(null);
+      setStep("idle");
     }
+  };
+
+  const formatIngredient = (ing: ExtractedIngredient) => {
+    return `${ing.quantity} ${ing.unit} ${ing.name}`;
   };
 
   return (
@@ -64,7 +127,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
           Import recipe from URL
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-96 max-w-[calc(100%-2rem)]">
+      <DialogContent className="w-[500px] max-w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Recipe from URL</DialogTitle>
           <DialogDescription>
@@ -72,58 +135,183 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="url" className="text-sm font-medium">
-              Recipe URL
-            </label>
-            <Input
-              id="url"
-              type="url"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-                setError("");
-              }}
-              placeholder="https://example.com/recipe"
-              disabled={isPending}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !isPending) {
-                  handleImport();
-                }
-              }}
-            />
-          </div>
+          {step === "idle" && (
+            <>
+              <div className="space-y-2">
+                <label htmlFor="url" className="text-sm font-medium">
+                  Recipe URL
+                </label>
+                <Input
+                  id="url"
+                  type="url"
+                  value={url}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    setError("");
+                  }}
+                  placeholder="https://example.com/recipe"
+                  disabled={isPending}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !isPending) {
+                      handleImport();
+                    }
+                  }}
+                />
+              </div>
 
-          {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
-              {error}
+              {error && (
+                <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleImport} 
+                  disabled={isPending || !url.trim()}
+                  className="flex-1"
+                >
+                  Import Recipe
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => handleOpenChange(false)}
+                  disabled={isPending}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {(step === "fetching" || step === "finding" || step === "creating") && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-3">
+                {/* Step 1: Fetching */}
+                <div className="flex items-center gap-3">
+                  {step === "fetching" ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  ) : step === "finding" || step === "creating" ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-muted-foreground" />
+                  )}
+                  <span className={step === "fetching" ? "font-medium" : step === "finding" || step === "creating" ? "text-muted-foreground" : ""}>
+                    Fetching from the site
+                  </span>
+                </div>
+
+                {/* Step 2: Finding ingredients */}
+                <div className="flex items-center gap-3">
+                  {step === "finding" ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  ) : step === "creating" ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-muted-foreground" />
+                  )}
+                  <span className={step === "finding" ? "font-medium" : step === "creating" ? "text-muted-foreground" : ""}>
+                    Finding ingredients
+                  </span>
+                </div>
+
+                {/* Step 3: Creating recipe */}
+                <div className="flex items-center gap-3">
+                  {step === "creating" ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-muted-foreground" />
+                  )}
+                  <span className={step === "creating" ? "font-medium" : ""}>
+                    Creating a recipe
+                  </span>
+                </div>
+
+                {/* Step 4: Success (placeholder) */}
+                <div className="flex items-center gap-3">
+                  <Circle className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Success</span>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleImport} 
-              disabled={isPending || !url.trim()}
-              className="flex-1"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                "Import Recipe"
-              )}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => handleOpenChange(false)}
-              disabled={isPending}
-            >
-              Cancel
-            </Button>
-          </div>
+          {step === "success" && previewData && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-3">
+                {/* All steps completed */}
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="text-muted-foreground">Fetching from the site</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="text-muted-foreground">Finding ingredients</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="text-muted-foreground">Creating a recipe</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="font-medium">Success</span>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Recipe Title</h3>
+                  <p className="text-sm text-muted-foreground bg-muted p-3 rounded">
+                    {previewData.name}
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Ingredients Found</h3>
+                  <ul className="space-y-1 bg-muted p-3 rounded max-h-48 overflow-y-auto">
+                    {previewData.ingredients.map((ing, index) => (
+                      <li key={index} className="text-sm text-muted-foreground">
+                        • {formatIngredient(ing)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {error && (
+                  <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    onClick={handleAccept} 
+                    disabled={isPending}
+                    className="flex-1"
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Accept"
+                    )}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handleCancel}
+                    disabled={isPending}
+                    className="flex-1"
+                  >
+                    No thanks
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

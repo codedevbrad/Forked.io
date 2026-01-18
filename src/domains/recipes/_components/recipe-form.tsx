@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createRecipeAction, updateRecipeAction, RecipeIngredientInput } from "@/src/domains/recipes/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
+import { TagSelector } from "@/src/domains/ingredients/_components/tag-selector";
 import { Unit } from "@prisma/client";
 import { Plus, X } from "lucide-react";
 
@@ -25,6 +26,11 @@ type RecipeFormProps = {
     quantity: number;
     unit: Unit;
   }>;
+  initialTags?: Array<{
+    id: string;
+    name: string;
+    color: string;
+  }>;
   onSuccess?: () => void;
   onCancel?: () => void;
 };
@@ -33,6 +39,7 @@ export function RecipeForm({
   recipeId, 
   initialName = "", 
   initialIngredients = [],
+  initialTags = [],
   onSuccess,
   onCancel 
 }: RecipeFormProps) {
@@ -40,6 +47,7 @@ export function RecipeForm({
   const { mutate } = useRecipes();
   const [name, setName] = useState(initialName);
   const [recipeIngredients, setRecipeIngredients] = useState<RecipeIngredientFormData[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialTags.map(tag => tag.id));
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const isEditing = !!recipeId;
@@ -60,6 +68,7 @@ export function RecipeForm({
             }))
           : []
       );
+      setSelectedTagIds(initialTags.map(tag => tag.id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipeId]); // Only depend on recipeId - initialName/initialIngredients are captured when ID changes
@@ -110,14 +119,15 @@ export function RecipeForm({
 
     startTransition(async () => {
       const result = isEditing
-        ? await updateRecipeAction(recipeId, name, validIngredients)
-        : await createRecipeAction(name, validIngredients);
+        ? await updateRecipeAction(recipeId, name, validIngredients, selectedTagIds)
+        : await createRecipeAction(name, validIngredients, selectedTagIds);
 
       if (!result.success) {
         setError(result.error);
       } else {
         setName("");
         setRecipeIngredients([]);
+        setSelectedTagIds([]);
         await mutate();
         onSuccess?.();
       }
@@ -227,6 +237,12 @@ export function RecipeForm({
           ))}
         </div>
       </div>
+
+      <TagSelector
+        selectedTagIds={selectedTagIds}
+        onSelectionChange={setSelectedTagIds}
+        disabled={isPending}
+      />
 
       {error && (
         <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">

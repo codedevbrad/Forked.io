@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
 import { Unit, IngredientType } from "@prisma/client";
 import { scrapeRecipeFromUrl } from "@/src/services/scraper";
-import { extractRecipeData } from "@/src/services/openai";
+import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai";
 
 export type RecipeIngredientInput = {
   ingredientId: string;
@@ -15,7 +15,8 @@ export type RecipeIngredientInput = {
 
 export async function createRecipeAction(
   name: string,
-  ingredients: RecipeIngredientInput[] = []
+  ingredients: RecipeIngredientInput[] = [],
+  tagIds: string[] = []
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -43,6 +44,20 @@ export async function createRecipeAction(
       }
     }
 
+    // Validate tags belong to user
+    if (tagIds.length > 0) {
+      const userTags = await prisma.tag.findMany({
+        where: {
+          id: { in: tagIds },
+          userId: session.user.id as string,
+        },
+      });
+
+      if (userTags.length !== tagIds.length) {
+        return { success: false, error: "Some tags are invalid" };
+      }
+    }
+
     const recipe = await prisma.recipe.create({
       data: {
         name: name.trim(),
@@ -53,6 +68,9 @@ export async function createRecipeAction(
             quantity: ing.quantity,
             unit: ing.unit,
           })),
+        },
+        tags: {
+          connect: tagIds.map((tagId) => ({ id: tagId })),
         },
       },
     });
@@ -67,7 +85,8 @@ export async function createRecipeAction(
 export async function updateRecipeAction(
   id: string,
   name: string,
-  ingredients: RecipeIngredientInput[] = []
+  ingredients: RecipeIngredientInput[] = [],
+  tagIds: string[] = []
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -107,6 +126,20 @@ export async function updateRecipeAction(
       }
     }
 
+    // Validate tags belong to user
+    if (tagIds.length > 0) {
+      const userTags = await prisma.tag.findMany({
+        where: {
+          id: { in: tagIds },
+          userId: session.user.id as string,
+        },
+      });
+
+      if (userTags.length !== tagIds.length) {
+        return { success: false, error: "Some tags are invalid" };
+      }
+    }
+
     // Delete existing ingredients and create new ones
     await prisma.recipeIngredient.deleteMany({
       where: { recipeId: id },
@@ -122,6 +155,9 @@ export async function updateRecipeAction(
             quantity: ing.quantity,
             unit: ing.unit,
           })),
+        },
+        tags: {
+          set: tagIds.map((tagId) => ({ id: tagId })),
         },
       },
     });
@@ -205,6 +241,7 @@ export async function getRecipesAction() {
             ingredient: true,
           },
         },
+        tags: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -237,6 +274,7 @@ export async function getRecipeAction(id: string) {
             ingredient: true,
           },
         },
+        tags: true,
       },
     });
 
@@ -248,7 +286,138 @@ export async function getRecipeAction(id: string) {
 }
 
 /**
+ * Extracts recipe data from a URL without saving (for preview)
+ */
+export async function previewRecipeFromUrlAction(
+  url: string
+): Promise<ActionResult<{ name: string; ingredients: ExtractedIngredient[] }>> {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!url || url.trim().length === 0) {
+      return { success: false, error: "URL is required" };
+    }
+
+    // Step 1: Scrape the recipe from URL
+    const scrapedContent = await scrapeRecipeFromUrl(url.trim());
+
+    // Step 2: Extract recipe data using OpenAI
+    const extractedData = await extractRecipeData(scrapedContent);
+
+    if (!extractedData.name || extractedData.ingredients.length === 0) {
+      return { 
+        success: false, 
+        error: "Could not extract recipe name or ingredients from the URL" 
+      };
+    }
+
+    return { 
+      success: true, 
+      data: { 
+        name: extractedData.name, 
+        ingredients: extractedData.ingredients 
+      } 
+    };
+  } catch (error) {
+    console.error("Preview recipe from URL error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { 
+      success: false, 
+      error: `Failed to preview recipe: ${errorMessage}` 
+    };
+  }
+}
+
+/**
+ * Saves a previewed recipe to the database
+ */
+export async function savePreviewedRecipeAction(
+  name: string,
+  ingredients: ExtractedIngredient[],
+  originalUrl: string
+): Promise<ActionResult<{ id: string; name: string }>> {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!name || name.trim().length === 0) {
+      return { success: false, error: "Recipe name is required" };
+    }
+
+    if (!ingredients || ingredients.length === 0) {
+      return { success: false, error: "At least one ingredient is required" };
+    }
+
+    // Step 3: Create or find ingredients and build recipe ingredient inputs
+    const recipeIngredients: RecipeIngredientInput[] = [];
+    const userId = session.user.id as string;
+
+    for (const extractedIng of ingredients) {
+      // Try to find existing ingredient
+      let ingredient = await prisma.ingredient.findUnique({
+        where: {
+          userId_name: {
+            userId,
+            name: extractedIng.name,
+          },
+        },
+      });
+
+      // If not found, create it (default to "food" type)
+      if (!ingredient) {
+        ingredient = await prisma.ingredient.create({
+          data: {
+            name: extractedIng.name,
+            type: IngredientType.food,
+            userId,
+          },
+        });
+      }
+
+      recipeIngredients.push({
+        ingredientId: ingredient.id,
+        quantity: extractedIng.quantity,
+        unit: extractedIng.unit,
+      });
+    }
+
+    // Step 4: Create the recipe
+    const recipe = await prisma.recipe.create({
+      data: {
+        name: name.trim(),
+        originalUrl: originalUrl.trim(),
+        userId,
+        ingredients: {
+          create: recipeIngredients.map((ing) => ({
+            ingredientId: ing.ingredientId,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          })),
+        },
+      },
+    });
+
+    return { success: true, data: { id: recipe.id, name: recipe.name } };
+  } catch (error) {
+    console.error("Save previewed recipe error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { 
+      success: false, 
+      error: `Failed to save recipe: ${errorMessage}` 
+    };
+  }
+}
+
+/**
  * Imports a recipe from a URL by scraping it and extracting ingredients with OpenAI
+ * @deprecated Use previewRecipeFromUrlAction + savePreviewedRecipeAction instead
  */
 export async function importRecipeFromUrlAction(
   url: string

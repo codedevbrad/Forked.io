@@ -5,7 +5,7 @@ CREATE TYPE "Unit" AS ENUM ('g', 'kg', 'ml', 'l', 'tbsp', 'tsp', 'piece');
 CREATE TYPE "StorageType" AS ENUM ('pantry', 'fridge', 'freezer');
 
 -- CreateEnum
-CREATE TYPE "IngredientType" AS ENUM ('food', 'drink', 'condiment');
+CREATE TYPE "IngredientType" AS ENUM ('food', 'drink', 'condiment', 'cleaning', 'household');
 
 -- CreateTable
 CREATE TABLE "Tag" (
@@ -132,6 +132,14 @@ CREATE TABLE "_IngredientToTag" (
     CONSTRAINT "_IngredientToTag_AB_pkey" PRIMARY KEY ("A","B")
 );
 
+-- CreateTable
+CREATE TABLE "_RecipeToTag" (
+    "A" TEXT NOT NULL,
+    "B" TEXT NOT NULL,
+
+    CONSTRAINT "_RecipeToTag_AB_pkey" PRIMARY KEY ("A","B")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Ingredient_userId_name_key" ON "Ingredient"("userId", "name");
 
@@ -149,6 +157,9 @@ CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 
 -- CreateIndex
 CREATE INDEX "_IngredientToTag_B_index" ON "_IngredientToTag"("B");
+
+-- CreateIndex
+CREATE INDEX "_RecipeToTag_B_index" ON "_RecipeToTag"("B");
 
 -- AddForeignKey
 ALTER TABLE "Tag" ADD CONSTRAINT "Tag_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -191,3 +202,9 @@ ALTER TABLE "_IngredientToTag" ADD CONSTRAINT "_IngredientToTag_A_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "_IngredientToTag" ADD CONSTRAINT "_IngredientToTag_B_fkey" FOREIGN KEY ("B") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_RecipeToTag" ADD CONSTRAINT "_RecipeToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_RecipeToTag" ADD CONSTRAINT "_RecipeToTag_B_fkey" FOREIGN KEY ("B") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;

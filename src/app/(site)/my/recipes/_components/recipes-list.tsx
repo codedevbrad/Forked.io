@@ -85,6 +85,7 @@ export function RecipesList() {
                 recipeId={recipe.id}
                 initialName={recipe.name}
                 initialIngredients={recipe.ingredients}
+                initialTags={recipe.tags || []}
                 onSuccess={handleEditSuccess}
                 onCancel={() => setEditingId(null)}
               />

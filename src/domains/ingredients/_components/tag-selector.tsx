@@ -37,6 +37,7 @@ export function TagSelector({
 
   const handleCreateTag = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!newTagName.trim()) return;
 
     startTransition(async () => {
@@ -45,6 +46,8 @@ export function TagSelector({
         setNewTagName("");
         setNewTagColor("#3b82f6");
         setIsCreatingTag(false);
+        // Keep popover open after creating tag
+        setOpen(true);
         await mutateTags();
         // Auto-select the newly created tag
         onSelectionChange([...selectedTagIds, result.data.id]);
@@ -150,13 +153,14 @@ export function TagSelector({
                   Create New Tag
                 </Button>
               ) : (
-                <form onSubmit={handleCreateTag} className="space-y-2">
+                <form onSubmit={handleCreateTag} onClick={(e) => e.stopPropagation()} className="space-y-2">
                   <Input
                     placeholder="Tag name"
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
                     disabled={isPending}
                     autoFocus
+                    onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex items-center gap-2">
                     <input
@@ -165,6 +169,7 @@ export function TagSelector({
                       onChange={(e) => setNewTagColor(e.target.value)}
                       className="w-10 h-10 rounded border"
                       disabled={isPending}
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <Input
                       type="text"
@@ -173,6 +178,7 @@ export function TagSelector({
                       placeholder="#3b82f6"
                       className="flex-1"
                       disabled={isPending}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </div>
                   <div className="flex gap-2">
@@ -181,6 +187,7 @@ export function TagSelector({
                       size="sm"
                       disabled={isPending || !newTagName.trim()}
                       className="flex-1"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {isPending ? "Creating..." : "Create"}
                     </Button>
@@ -188,7 +195,8 @@ export function TagSelector({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setIsCreatingTag(false);
                         setNewTagName("");
                         setNewTagColor("#3b82f6");
