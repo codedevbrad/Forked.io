@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useStored } from "@/src/domains/stored/_contexts/useStored";
-import { StorageType } from "@prisma/client";
-import { Box, Refrigerator, Snowflake } from "lucide-react";
+import { useStored, useStoredLocation } from "@/src/domains/stored/_contexts/useStored";
+import { StorageType, IngredientType } from "@prisma/client";
+import { Box, Refrigerator, Snowflake, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/src/components/ui/button";
 
 type StoragePosition = {
   x: number;
@@ -88,6 +89,7 @@ export function StorageRoomCanvas() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [openedStorageId, setOpenedStorageId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Load positions from localStorage on mount
@@ -144,8 +146,8 @@ export function StorageRoomCanvas() {
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, id: string) => {
-      // Don't start dragging if clicking on a link
-      if ((e.target as HTMLElement).closest('a')) {
+      // Don't start dragging if clicking on a link or button
+      if ((e.target as HTMLElement).closest('a') || (e.target as HTMLElement).closest('button')) {
         return;
       }
 
@@ -246,56 +248,85 @@ export function StorageRoomCanvas() {
   }));
 
   return (
-    <div className="w-full">
+    <div className="w-full space-y-4">
       <div
         ref={canvasRef}
-        className="relative w-full h-[450px] border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 overflow-hidden"
+        className="relative w-full h-[450px] border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 overflow-visible"
         style={{ minHeight: "400px" }}
       >
         {storageWithPositions.map((storage) => {
           const Icon = getStorageTypeIcon(storage.type);
           const colorClass = getStorageTypeColor(storage.type);
           const isDragging = draggingId === storage.id;
+          const isOpen = openedStorageId === storage.id;
 
           return (
-            <div
-              key={storage.id}
-              className={`absolute cursor-move transition-none ${colorClass} border-2 rounded-lg p-3 shadow-md ${
-                isDragging ? "z-50 shadow-lg scale-105" : "z-10"
-              }`}
-              style={{
-                left: `${storage.position.x}px`,
-                top: `${storage.position.y}px`,
-                width: `${RECTANGLE_WIDTH}px`,
-                height: `${RECTANGLE_HEIGHT}px`,
-              }}
-              onMouseDown={(e) => handleMouseDown(e, storage.id)}
-            >
-              <div className="flex flex-col h-full">
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon className="w-5 h-5" />
-                  <span className="text-xs font-medium text-gray-600">
-                    {getStorageTypeLabel(storage.type)}
-                  </span>
-                </div>
-                <Link
-                  href={`/my/stored/${storage.id}`}
-                  className="font-semibold text-sm hover:underline flex-1"
-                  onClick={(e) => {
-                    // Prevent navigation when dragging
-                    if (draggingId === storage.id || isDragging) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }
-                  }}
-                >
-                  {storage.name}
-                </Link>
-                <div className="text-xs text-muted-foreground mt-auto">
-                  {(storage.ingredients?.length || 0)} ingredient
-                  {(storage.ingredients?.length || 0) !== 1 ? "s" : ""}
+            <div key={storage.id}>
+              <div
+                className={`absolute cursor-move transition-none ${colorClass} border-2 rounded-lg p-3 shadow-md ${
+                  isDragging ? "z-50 shadow-lg scale-105" : "z-10"
+                }`}
+                style={{
+                  left: `${storage.position.x}px`,
+                  top: `${storage.position.y}px`,
+                  width: `${RECTANGLE_WIDTH}px`,
+                  height: `${RECTANGLE_HEIGHT}px`,
+                }}
+                onMouseDown={(e) => handleMouseDown(e, storage.id)}
+              >
+                <div className="flex flex-col h-full">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs font-medium text-gray-600">
+                      {getStorageTypeLabel(storage.type)}
+                    </span>
+                  </div>
+                  <Link
+                    href={`/my/stored/${storage.id}`}
+                    className="font-semibold text-sm hover:underline flex-1"
+                    onClick={(e) => {
+                      // Prevent navigation when dragging
+                      if (draggingId === storage.id || isDragging) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }
+                    }}
+                  >
+                    {storage.name}
+                  </Link>
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="text-xs text-muted-foreground">
+                      {(storage.ingredients?.length || 0)} ingredient
+                      {(storage.ingredients?.length || 0) !== 1 ? "s" : ""}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setOpenedStorageId(isOpen ? null : storage.id);
+                      }}
+                    >
+                      {isOpen ? (
+                        <ChevronUp className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
+              {isOpen && (
+                <StorageAggregationCards
+                  storageId={storage.id}
+                  position={{
+                    x: storage.position.x,
+                    y: storage.position.y + RECTANGLE_HEIGHT + 10,
+                  }}
+                />
+              )}
             </div>
           );
         })}
@@ -303,6 +334,187 @@ export function StorageRoomCanvas() {
       <p className="text-xs text-muted-foreground mt-2">
         Click and drag storage locations to rearrange them in your room.
       </p>
+    </div>
+  );
+}
+
+function StorageAggregationCards({
+  storageId,
+  position,
+}: {
+  storageId: string;
+  position: StoragePosition;
+}) {
+  const { data: storedLocation, isLoading } = useStoredLocation(storageId);
+
+  if (isLoading) {
+    return (
+      <div
+        className="absolute bg-white border rounded-lg p-2 shadow-md z-20"
+        style={{
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+        }}
+      >
+        <p className="text-xs text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!storedLocation) {
+    return null;
+  }
+
+  const storedIngredients = storedLocation.ingredients || [];
+
+  // Calculate aggregations
+  const ingredientTypeCounts: Record<IngredientType, number> = {
+    food: 0,
+    drink: 0,
+    condiment: 0,
+    cleaning: 0,
+    household: 0,
+  };
+
+  const storageTypeCounts: Record<StorageType, number> = {
+    pantry: 0,
+    fridge: 0,
+    freezer: 0,
+  };
+
+  const tagCounts: Record<string, { name: string; color: string; count: number }> = {};
+  const categoryCounts: Record<string, { name: string; color: string; count: number }> = {};
+
+  storedIngredients.forEach((storedIngredient) => {
+    const ingredient = storedIngredient.ingredient;
+
+    // Count ingredient types
+    if (ingredient.type) {
+      ingredientTypeCounts[ingredient.type] = (ingredientTypeCounts[ingredient.type] || 0) + 1;
+    }
+
+    // Count storage types
+    if (ingredient.storageType) {
+      storageTypeCounts[ingredient.storageType] =
+        (storageTypeCounts[ingredient.storageType] || 0) + 1;
+    }
+
+    // Count tags
+    ingredient.tag?.forEach((tag) => {
+      if (!tagCounts[tag.id]) {
+        tagCounts[tag.id] = {
+          name: tag.name,
+          color: tag.color,
+          count: 0,
+        };
+      }
+      tagCounts[tag.id].count += 1;
+    });
+
+    // Count categories
+    if (ingredient.category) {
+      const category = ingredient.category;
+      if (!categoryCounts[category.id]) {
+        categoryCounts[category.id] = {
+          name: category.name,
+          color: category.color,
+          count: 0,
+        };
+      }
+      categoryCounts[category.id].count += 1;
+    }
+  });
+
+  const allCards: Array<{ label: string; count: number; type: string; color?: string }> = [];
+
+  // Add ingredient type cards
+  Object.entries(ingredientTypeCounts)
+    .filter(([_, count]) => count > 0)
+    .forEach(([type, count]) => {
+      allCards.push({ label: type, count, type: "ingredientType" });
+    });
+
+  // Add storage type cards
+  Object.entries(storageTypeCounts)
+    .filter(([_, count]) => count > 0)
+    .forEach(([type, count]) => {
+      allCards.push({
+        label: getStorageTypeLabel(type as StorageType),
+        count,
+        type: "storageType",
+      });
+    });
+
+  // Add tag cards
+  Object.values(tagCounts).forEach((tag) => {
+    allCards.push({
+      label: tag.name,
+      count: tag.count,
+      type: "tag",
+      color: tag.color,
+    });
+  });
+
+  // Add category cards
+  Object.values(categoryCounts).forEach((category) => {
+    allCards.push({
+      label: category.name,
+      count: category.count,
+      type: "category",
+      color: category.color,
+    });
+  });
+
+  if (allCards.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="absolute z-20 flex flex-wrap gap-2"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        maxWidth: `${RECTANGLE_WIDTH * 2}px`,
+      }}
+    >
+      {allCards.map((card, index) => {
+        let cardClassName = "px-2 py-1 rounded-md text-xs font-medium border shadow-sm";
+        let cardStyle: React.CSSProperties = {};
+
+        if (card.type === "ingredientType") {
+          cardClassName += " bg-primary/10 text-primary border-primary/20";
+        } else if (card.type === "storageType") {
+          cardClassName += " bg-blue-100 text-blue-700 border-blue-200";
+        } else if (card.type === "tag" && card.color) {
+          cardClassName += " flex items-center gap-1";
+          cardStyle = {
+            backgroundColor: `${card.color}20`,
+            color: card.color,
+            border: `1px solid ${card.color}40`,
+          };
+        } else if (card.type === "category" && card.color) {
+          cardStyle = {
+            backgroundColor: `${card.color}20`,
+            color: card.color,
+            border: `1px solid ${card.color}40`,
+          };
+        }
+
+        return (
+          <div key={`${card.type}-${card.label}-${index}`} className={cardClassName} style={cardStyle}>
+            {card.type === "tag" && card.color && (
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: card.color }}
+              />
+            )}
+            <span>
+              {card.count} {card.label}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

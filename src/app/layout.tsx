@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Forked.io",
+  title: "FoodForked.io",
   description: "PublishOS is a platform for building and publishing websites.",
 };
 

@@ -18,7 +18,7 @@ export function Header() {
           <div className=" flex">
             <Link href="/" className="flex">
               <h3 className="font-bold">
-                 Forked.io
+                 Foodforked.io
               </h3>
             </Link>   
           </div>
