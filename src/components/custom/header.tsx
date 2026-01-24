@@ -25,7 +25,9 @@ export function Header() {
           <nav className="ml-5 flex flex-row gap-4">
             <ul className="flex flex-row gap-4 text-sm">
                <li> <Link href="/my/">Home</Link></li>
+               <li> <Link href="/my/discover">Discover</Link></li>
                <li> <Link href="/my/ingredients">Ingredients</Link></li>
+               
                <li> <Link href="/my/recipes">Recipes</Link></li>
                <li> <Link href="/my/shop">Shopping Lists</Link></li>
                <li> <Link href="/my/stored">Stored</Link></li>            
