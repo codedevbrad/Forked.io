@@ -2,6 +2,10 @@
 import { useState } from "react"
 import { useUser } from "@/src/domains/user/_contexts/useUser"
 import { SignOutButton } from "@/src/domains/user/_components/sign-out-button"
+import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients"
+import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes"
+import { useShoppingLists } from "@/src/domains/shop/_contexts/useShoppingLists"
+import { useStored } from "@/src/domains/stored/_contexts/useStored"
 import Link from "next/link"
 import { Button } from "@/src/components/ui/button"
 import { CreateModal } from "./create-modal"
@@ -9,7 +13,16 @@ import { Plus } from "lucide-react"
 
 export function Header() {
   const { data: user, isLoading } = useUser();
+  const { data: ingredients } = useIngredients();
+  const { data: recipes } = useRecipes();
+  const { data: shoppingLists } = useShoppingLists();
+  const { data: stored } = useStored();
   const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  const ingredientsCount = ingredients?.length ?? 0;
+  const recipesCount = recipes?.length ?? 0;
+  const shoppingListsCount = shoppingLists?.length ?? 0;
+  const storedCount = stored?.length ?? 0;
 
   return (
     <>
@@ -26,11 +39,31 @@ export function Header() {
             <ul className="flex flex-row gap-4 text-sm">
                <li> <Link href="/my/">Home</Link></li>
                <li> <Link href="/my/discover">Discover</Link></li>
-               <li> <Link href="/my/ingredients">Ingredients</Link></li>
+               <li> 
+                 <Link href="/my/ingredients" className="flex items-center gap-1.5">
+                   Ingredients
+                   <span className="text-xs text-muted-foreground">({ingredientsCount})</span>
+                 </Link>
+               </li>
                
-               <li> <Link href="/my/recipes">Recipes</Link></li>
-               <li> <Link href="/my/shop">Shopping Lists</Link></li>
-               <li> <Link href="/my/stored">Stored</Link></li>            
+               <li> 
+                 <Link href="/my/recipes" className="flex items-center gap-1.5">
+                   Recipes
+                   <span className="text-xs text-muted-foreground">({recipesCount})</span>
+                 </Link>
+               </li>
+               <li> 
+                 <Link href="/my/shop" className="flex items-center gap-1.5">
+                   Shopping Lists
+                   <span className="text-xs text-muted-foreground">({shoppingListsCount})</span>
+                 </Link>
+               </li>
+               <li> 
+                 <Link href="/my/stored" className="flex items-center gap-1.5">
+                   Stored
+                   <span className="text-xs text-muted-foreground">({storedCount})</span>
+                 </Link>
+               </li>            
             </ul>
           </nav>
           <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
