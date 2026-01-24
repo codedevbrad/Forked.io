@@ -54,24 +54,25 @@ export function RecipeForm({
   const prevRecipeIdRef = useRef<string | undefined>(recipeId);
 
   useEffect(() => {
-    // Only sync when recipeId changes (switching to edit a different recipe)
+    // Sync state when recipeId changes (switching to edit a different recipe)
+    // or when initialIngredients/initialName/initialTags change (data updated)
     if (prevRecipeIdRef.current !== recipeId) {
       prevRecipeIdRef.current = recipeId;
-      // Sync state only when switching to a different recipe
-      setName(initialName);
-      setRecipeIngredients(
-        initialIngredients.length > 0
-          ? initialIngredients.map((ing) => ({
-              ingredientId: ing.ingredientId,
-              quantity: ing.quantity.toString(),
-              unit: ing.unit,
-            }))
-          : []
-      );
-      setSelectedTagIds(initialTags.map(tag => tag.id));
     }
+    // Always sync state from props when they change
+    setName(initialName);
+    setRecipeIngredients(
+      initialIngredients.length > 0
+        ? initialIngredients.map((ing) => ({
+            ingredientId: ing.ingredientId,
+            quantity: ing.quantity.toString(),
+            unit: ing.unit,
+          }))
+        : []
+    );
+    setSelectedTagIds(initialTags.map(tag => tag.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recipeId]); // Only depend on recipeId - initialName/initialIngredients are captured when ID changes
+  }, [recipeId, initialName, initialIngredients, initialTags]);
 
   const addIngredient = () => {
     setRecipeIngredients([
