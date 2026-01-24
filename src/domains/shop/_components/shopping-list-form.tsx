@@ -46,23 +46,24 @@ export function ShoppingListForm({
   const prevShoppingListIdRef = useRef<string | undefined>(shoppingListId);
 
   useEffect(() => {
-    // Only sync when shoppingListId changes (switching to edit a different shopping list)
+    // Sync state when shoppingListId changes (switching to edit a different shopping list)
+    // or when initialIngredients/initialName change (data updated)
     if (prevShoppingListIdRef.current !== shoppingListId) {
       prevShoppingListIdRef.current = shoppingListId;
-      // Sync state only when switching to a different shopping list
-      setName(initialName);
-      setListIngredients(
-        initialIngredients.length > 0
-          ? initialIngredients.map((ing) => ({
-              ingredientId: ing.ingredientId,
-              quantity: ing.quantity.toString(),
-              unit: ing.unit,
-            }))
-          : []
-      );
     }
+    // Always sync state from props when they change
+    setName(initialName);
+    setListIngredients(
+      initialIngredients.length > 0
+        ? initialIngredients.map((ing) => ({
+            ingredientId: ing.ingredientId,
+            quantity: ing.quantity.toString(),
+            unit: ing.unit,
+          }))
+        : []
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shoppingListId]); // Only depend on shoppingListId - initialName/initialIngredients are captured when ID changes
+  }, [shoppingListId, initialName, initialIngredients]);
 
   const addIngredient = () => {
     setListIngredients([
