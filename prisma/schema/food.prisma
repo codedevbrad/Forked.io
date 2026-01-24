@@ -96,6 +96,8 @@ model Recipe {
   tags Tag[]
 
   ingredients RecipeIngredient[]
+  shoppingLists ShoppingListRecipe[]
+  shoppingListIngredients ShoppingListIngredient[]
 
   user User @relation(fields: [userId], references: [id])
   userId String
@@ -166,12 +168,14 @@ model ShoppingList {
   userId String
 
   ingredients ShoppingListIngredient[]
+  recipes ShoppingListRecipe[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([userId, name])
 }
+
 
 
 model ShoppingListIngredient {
@@ -182,8 +186,27 @@ model ShoppingListIngredient {
   ingredientId String
   quantity Float
   unit Unit
+  
+  // Optional: track which recipe this ingredient came from
+  recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  recipeId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 
+model ShoppingListRecipe {
+  id String @id @default(cuid())
+  
+  shoppingList ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  shoppingListId String
+  
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shoppingListId, recipeId])
+}

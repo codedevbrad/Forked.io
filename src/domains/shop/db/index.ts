@@ -13,7 +13,8 @@ export type ShoppingListIngredientInput = {
 
 export async function createShoppingListAction(
   name: string,
-  ingredients: ShoppingListIngredientInput[] = []
+  ingredients: ShoppingListIngredientInput[] = [],
+  recipeIds: string[] = []
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -55,19 +56,84 @@ export async function createShoppingListAction(
       }
     }
 
+    // Validate recipes belong to user and get their ingredients
+    let userRecipes: Array<{
+      id: string;
+      ingredients: Array<{
+        ingredientId: string;
+        unit: Unit;
+      }>;
+    }> = [];
+    
+    const ingredientRecipeMap = new Map<string, string>();
+    
+    if (recipeIds.length > 0) {
+      userRecipes = await prisma.recipe.findMany({
+        where: {
+          id: { in: recipeIds },
+          userId: session.user.id as string,
+        },
+        include: {
+          ingredients: true,
+        },
+      });
+
+      if (userRecipes.length !== recipeIds.length) {
+        return { success: false, error: "Some recipes are invalid" };
+      }
+
+      // Create a map to track which recipe each ingredient came from
+      userRecipes.forEach((recipe) => {
+        recipe.ingredients.forEach((recipeIng) => {
+          // If this ingredient is in our ingredients list, mark which recipe it came from
+          const existingIng = ingredients.find(
+            ing => ing.ingredientId === recipeIng.ingredientId &&
+                   ing.unit === recipeIng.unit
+          );
+          if (existingIng) {
+            ingredientRecipeMap.set(`${existingIng.ingredientId}-${existingIng.unit}`, recipe.id);
+          }
+        });
+      });
+    }
+
+    // Create shopping list first
     const shoppingList = await prisma.shoppingList.create({
       data: {
         name: name.trim(),
         userId: session.user.id as string,
-        ingredients: {
-          create: ingredients.map((ing) => ({
-            ingredientId: ing.ingredientId,
-            quantity: ing.quantity,
-            unit: ing.unit,
+        recipes: {
+          create: recipeIds.map((recipeId) => ({
+            recipeId,
           })),
         },
       },
     });
+
+    // Then create ingredients separately so we can set recipeId
+    if (ingredients.length > 0) {
+      await prisma.shoppingListIngredient.createMany({
+        data: ingredients.map((ing) => {
+          const recipeId = ingredientRecipeMap.get(`${ing.ingredientId}-${ing.unit}`);
+          const ingredientData: {
+            shoppingListId: string;
+            ingredientId: string;
+            quantity: number;
+            unit: Unit;
+            recipeId?: string;
+          } = {
+            shoppingListId: shoppingList.id,
+            ingredientId: ing.ingredientId,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          };
+          if (recipeId) {
+            ingredientData.recipeId = recipeId;
+          }
+          return ingredientData;
+        }),
+      });
+    }
 
     return { success: true, data: { id: shoppingList.id, name: shoppingList.name } };
   } catch (error) {
@@ -79,7 +145,8 @@ export async function createShoppingListAction(
 export async function updateShoppingListAction(
   id: string,
   name: string,
-  ingredients: ShoppingListIngredientInput[] = []
+  ingredients: ShoppingListIngredientInput[] = [],
+  recipeIds: string[] = []
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -133,24 +200,92 @@ export async function updateShoppingListAction(
       }
     }
 
-    // Delete existing ingredients and create new ones
+    // Validate recipes belong to user and get their ingredients
+    let userRecipes: Array<{
+      id: string;
+      ingredients: Array<{
+        ingredientId: string;
+        unit: Unit;
+      }>;
+    }> = [];
+    
+    const ingredientRecipeMap = new Map<string, string>();
+    
+    if (recipeIds.length > 0) {
+      userRecipes = await prisma.recipe.findMany({
+        where: {
+          id: { in: recipeIds },
+          userId: session.user.id as string,
+        },
+        include: {
+          ingredients: true,
+        },
+      });
+
+      if (userRecipes.length !== recipeIds.length) {
+        return { success: false, error: "Some recipes are invalid" };
+      }
+
+      // Create a map to track which recipe each ingredient came from
+      userRecipes.forEach((recipe) => {
+        recipe.ingredients.forEach((recipeIng) => {
+          // If this ingredient is in our ingredients list, mark which recipe it came from
+          const existingIng = ingredients.find(
+            ing => ing.ingredientId === recipeIng.ingredientId &&
+                   ing.unit === recipeIng.unit
+          );
+          if (existingIng) {
+            ingredientRecipeMap.set(`${existingIng.ingredientId}-${existingIng.unit}`, recipe.id);
+          }
+        });
+      });
+    }
+
+    // Delete existing ingredients and recipes, then create new ones
     await prisma.shoppingListIngredient.deleteMany({
       where: { shoppingListId: id },
     });
+    await prisma.shoppingListRecipe.deleteMany({
+      where: { shoppingListId: id },
+    });
 
+    // Update shopping list name and recipes
     const shoppingList = await prisma.shoppingList.update({
       where: { id },
       data: {
         name: name.trim(),
-        ingredients: {
-          create: ingredients.map((ing) => ({
-            ingredientId: ing.ingredientId,
-            quantity: ing.quantity,
-            unit: ing.unit,
+        recipes: {
+          create: recipeIds.map((recipeId) => ({
+            recipeId,
           })),
         },
       },
     });
+
+    // Then create ingredients separately so we can set recipeId
+    if (ingredients.length > 0) {
+      await prisma.shoppingListIngredient.createMany({
+        data: ingredients.map((ing) => {
+          const recipeId = ingredientRecipeMap.get(`${ing.ingredientId}-${ing.unit}`);
+          const ingredientData: {
+            shoppingListId: string;
+            ingredientId: string;
+            quantity: number;
+            unit: Unit;
+            recipeId?: string;
+          } = {
+            shoppingListId: id,
+            ingredientId: ing.ingredientId,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          };
+          if (recipeId) {
+            ingredientData.recipeId = recipeId;
+          }
+          return ingredientData;
+        }),
+      });
+    }
 
     return { success: true, data: { id: shoppingList.id, name: shoppingList.name } };
   } catch (error) {
@@ -229,6 +364,22 @@ export async function getShoppingListsAction() {
         ingredients: {
           include: {
             ingredient: true,
+            recipe: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        recipes: {
+          include: {
+            recipe: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
@@ -261,6 +412,22 @@ export async function getShoppingListAction(id: string) {
         ingredients: {
           include: {
             ingredient: true,
+            recipe: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        recipes: {
+          include: {
+            recipe: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },

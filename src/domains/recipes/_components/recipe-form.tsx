@@ -52,26 +52,28 @@ export function RecipeForm({
   const [isPending, startTransition] = useTransition();
   const isEditing = !!recipeId;
   const prevRecipeIdRef = useRef<string | undefined>(recipeId);
+  const isInitialMountRef = useRef(true);
 
   useEffect(() => {
-    // Sync state when recipeId changes (switching to edit a different recipe)
-    // or when initialIngredients/initialName/initialTags change (data updated)
-    if (prevRecipeIdRef.current !== recipeId) {
+    // Only sync state when recipeId changes (switching to edit a different recipe)
+    // or on initial mount. This prevents resetting the form while user is typing.
+    const recipeIdChanged = prevRecipeIdRef.current !== recipeId;
+    
+    if (recipeIdChanged || isInitialMountRef.current) {
       prevRecipeIdRef.current = recipeId;
+      isInitialMountRef.current = false;
+      setName(initialName);
+      setRecipeIngredients(
+        initialIngredients.length > 0
+          ? initialIngredients.map((ing) => ({
+              ingredientId: ing.ingredientId,
+              quantity: ing.quantity.toString(),
+              unit: ing.unit,
+            }))
+          : []
+      );
+      setSelectedTagIds(initialTags.map(tag => tag.id));
     }
-    // Always sync state from props when they change
-    setName(initialName);
-    setRecipeIngredients(
-      initialIngredients.length > 0
-        ? initialIngredients.map((ing) => ({
-            ingredientId: ing.ingredientId,
-            quantity: ing.quantity.toString(),
-            unit: ing.unit,
-          }))
-        : []
-    );
-    setSelectedTagIds(initialTags.map(tag => tag.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipeId, initialName, initialIngredients, initialTags]);
 
   const addIngredient = () => {
