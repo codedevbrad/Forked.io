@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { redirect, useRouter } from "next/navigation";
-import { IngredientsList } from "./ingredients-list";
+import { useState, useEffect } from "react"; 
+import { IngredientsList } from "../../../../../domains/ingredients/_components/ingredients-list";
 import { CreateIngredientPopover } from "./create-ingredient-popover";
 import { IngredientsFilter } from "./ingredients-filter";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";

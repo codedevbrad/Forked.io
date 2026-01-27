@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { IngredientForm } from "@/src/domains/ingredients/_components/ingredient-form";
 import { IngredientCard } from "@/src/domains/ingredients/_components/ingredient";
+import { ShoppingListsPopover } from "@/src/domains/ingredients/_components/shopping-lists-popover";
 import { deleteIngredientAction } from "@/src/domains/ingredients/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
-import { Trash2, Pencil, ExternalLink } from "lucide-react";
+import { useShoppingLists } from "@/src/domains/shop/_contexts/useShoppingLists";
+import { useStored } from "@/src/domains/stored/_contexts/useStored";
+import { Trash2, Pencil, ExternalLink, ShoppingCart, Package } from "lucide-react";
 import { IngredientType, StorageType } from "@prisma/client";
 
 type Ingredient = {
@@ -26,11 +29,40 @@ type IngredientsListProps = {
 
 export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
   const { data: allIngredients, isLoading, error, mutate } = useIngredients();
+  const { data: shoppingLists = [] } = useShoppingLists();
+  const { data: storedItems = [] } = useStored();
   const ingredients = filteredIngredients || allIngredients || [];
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  // Create sets of ingredient IDs that are in shopping lists and stored
+  const { ingredientsInShoppingLists, ingredientsStored } = useMemo(() => {
+    const inShoppingLists = new Set<string>();
+    const inStored = new Set<string>();
+
+    // Extract ingredient IDs from shopping lists
+    shoppingLists.forEach((list) => {
+      list.ingredients?.forEach((ing) => {
+        inShoppingLists.add(ing.ingredientId);
+      });
+    });
+
+    // Extract ingredient IDs from stored items
+    storedItems.forEach((storedItem) => {
+      storedItem.ingredients?.forEach((storedIngredient) => {
+        if (storedIngredient.ingredient?.id) {
+          inStored.add(storedIngredient.ingredient.id);
+        }
+      });
+    });
+
+    return {
+      ingredientsInShoppingLists: inShoppingLists,
+      ingredientsStored: inStored,
+    };
+  }, [shoppingLists, storedItems]);
 
   const handleDeleteClick = (id: string) => {
     setItemToDelete(id);
@@ -99,6 +131,9 @@ export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />
+      <div className="mb-4 flex justify-end">
+        <ShoppingListsPopover />
+      </div>
       <div className="space-y-2 grid grid-cols-3 gap-4">
         {ingredients.map((ingredient) => (
           <div key={ingredient.id} className="relative group">
@@ -122,28 +157,49 @@ export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
               }
             />
             {editingId !== ingredient.id && (
-              <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingId(ingredient.id)}
-                  disabled={isPending}
-                  className="h-7 w-7 p-0"
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteClick(ingredient.id)}
-                  disabled={isPending}
-                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+              <>
+                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingId(ingredient.id)}
+                    disabled={isPending}
+                    className="h-7 w-7 p-0"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteClick(ingredient.id)}
+                    disabled={isPending}
+                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+                {/* Status indicators */}
+                <div className="absolute top-2 right-2 flex gap-1.5">
+                  {ingredientsInShoppingLists.has(ingredient.id) && (
+                    <div
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
+                      title="In shopping list"
+                    >
+                      <ShoppingCart className="w-3 h-3" />
+                    </div>
+                  )}
+                  {ingredientsStored.has(ingredient.id) && (
+                    <div
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
+                      title="Stored"
+                    >
+                      <Package className="w-3 h-3" />
+                    </div>
+                  )}
+                </div>
+              </>
             )}
             {ingredient.storeLinks && ingredient.storeLinks.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
