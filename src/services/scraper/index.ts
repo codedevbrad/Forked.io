@@ -1,10 +1,15 @@
 import * as cheerio from "cheerio";
 
+export type ScrapedRecipeData = {
+  text: string;
+  images: string[];
+};
+
 /**
  * Scrapes recipe data from a URL using Cheerio
- * Extracts recipe name and ingredient list from common recipe website structures
+ * Extracts recipe name, ingredient list, and images from common recipe website structures
  */
-export async function scrapeRecipeFromUrl(url: string): Promise<string> {
+export async function scrapeRecipeFromUrl(url: string): Promise<ScrapedRecipeData> {
   try {
     // Validate URL
     let parsedUrl: URL;
@@ -28,6 +33,71 @@ export async function scrapeRecipeFromUrl(url: string): Promise<string> {
 
     const html = await response.text();
     const $ = cheerio.load(html);
+
+    // Extract images from the page
+    const imageUrls: string[] = [];
+    const imageSelectors = [
+      '[class*="recipe-image"]',
+      '[class*="recipe-img"]',
+      '[class*="recipe-photo"]',
+      '[itemprop="image"]',
+      '[data-testid*="image"]',
+      'img[class*="recipe"]',
+      'img[class*="hero"]',
+      'img[class*="featured"]',
+      'article img',
+      'main img',
+      '[class*="content"] img',
+    ];
+
+    // Try recipe-specific image selectors first
+    for (const selector of imageSelectors) {
+      const images = $(selector);
+      if (images.length > 0) {
+        images.each((_, el) => {
+          const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src');
+          if (src) {
+            try {
+              // Resolve relative URLs
+              const imageUrl = new URL(src, parsedUrl.origin).href;
+              // Filter out very small images (likely icons) and data URLs
+              if (!imageUrl.startsWith('data:') && !imageUrls.includes(imageUrl)) {
+                imageUrls.push(imageUrl);
+              }
+            } catch {
+              // Invalid URL, skip
+            }
+          }
+        });
+        if (imageUrls.length > 0) break;
+      }
+    }
+
+    // If no recipe-specific images found, get first few images from main content
+    if (imageUrls.length === 0) {
+      const mainImages = $('main img, article img, [class*="content"] img').slice(0, 5);
+      mainImages.each((_, el) => {
+        const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src');
+        if (src) {
+          try {
+            const imageUrl = new URL(src, parsedUrl.origin).href;
+            if (!imageUrl.startsWith('data:') && !imageUrls.includes(imageUrl)) {
+              // Filter out small images (likely icons/logos) - check width/height attributes
+              const width = parseInt($(el).attr('width') || '0');
+              const height = parseInt($(el).attr('height') || '0');
+              if (width >= 200 || height >= 200 || (width === 0 && height === 0)) {
+                imageUrls.push(imageUrl);
+              }
+            }
+          } catch {
+            // Invalid URL, skip
+          }
+        }
+      });
+    }
+
+    // Limit to top 10 images
+    const uniqueImages = Array.from(new Set(imageUrls)).slice(0, 10);
 
     // Try to extract recipe name from various common selectors
     let recipeName = "";
@@ -120,7 +190,10 @@ export async function scrapeRecipeFromUrl(url: string): Promise<string> {
       throw new Error("Could not extract recipe data from the URL");
     }
 
-    return result;
+    return {
+      text: result,
+      images: uniqueImages,
+    };
   } catch (error) {
     console.error("Scraping error:", error);
     if (error instanceof Error) {

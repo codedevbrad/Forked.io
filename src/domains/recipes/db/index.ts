@@ -6,6 +6,7 @@ import { ActionResult } from "@/src/domains/user/db";
 import { Unit, IngredientType } from "@prisma/client";
 import { scrapeRecipeFromUrl } from "@/src/services/scraper";
 import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai";
+import { uploadRecipeImageToR2 } from "@/src/lib/cloudflare";
 
 export type RecipeIngredientInput = {
   ingredientId: string;
@@ -290,7 +291,7 @@ export async function getRecipeAction(id: string) {
  */
 export async function previewRecipeFromUrlAction(
   url: string
-): Promise<ActionResult<{ name: string; ingredients: ExtractedIngredient[] }>> {
+): Promise<ActionResult<{ name: string; ingredients: ExtractedIngredient[]; images: string[] }>> {
   try {
     const session = await auth();
     
@@ -303,10 +304,10 @@ export async function previewRecipeFromUrlAction(
     }
 
     // Step 1: Scrape the recipe from URL
-    const scrapedContent = await scrapeRecipeFromUrl(url.trim());
+    const scrapedData = await scrapeRecipeFromUrl(url.trim());
 
     // Step 2: Extract recipe data using OpenAI
-    const extractedData = await extractRecipeData(scrapedContent);
+    const extractedData = await extractRecipeData(scrapedData.text, scrapedData.images);
 
     if (!extractedData.name || extractedData.ingredients.length === 0) {
       return { 
@@ -319,7 +320,8 @@ export async function previewRecipeFromUrlAction(
       success: true, 
       data: { 
         name: extractedData.name, 
-        ingredients: extractedData.ingredients 
+        ingredients: extractedData.ingredients,
+        images: extractedData.images || []
       } 
     };
   } catch (error) {
@@ -333,12 +335,72 @@ export async function previewRecipeFromUrlAction(
 }
 
 /**
+ * Uploads an image from a URL to Cloudflare R2
+ */
+export async function uploadRecipeImageAction(
+  imageUrl: string
+): Promise<ActionResult<{ url: string }>> {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!imageUrl || imageUrl.trim().length === 0) {
+      return { success: false, error: "Image URL is required" };
+    }
+
+    // Fetch the image from the URL
+    const imageResponse = await fetch(imageUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+
+    if (!imageResponse.ok) {
+      return { success: false, error: `Failed to fetch image: ${imageResponse.statusText}` };
+    }
+
+    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+    
+    // Determine content type from response or URL
+    const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+    
+    // Extract filename from URL or use default
+    const urlPath = new URL(imageUrl).pathname;
+    const fileName = urlPath.split("/").pop() || "recipe-image.jpg";
+    
+    // Upload to R2 - using recipes folder structure
+    const uploadResult = await uploadRecipeImageToR2(
+      imageBuffer,
+      fileName,
+      contentType
+    );
+
+    if (!uploadResult.success) {
+      return { success: false, error: uploadResult.error };
+    }
+
+    return { success: true, data: { url: uploadResult.url } };
+  } catch (error) {
+    console.error("Upload recipe image error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { 
+      success: false, 
+      error: `Failed to upload image: ${errorMessage}` 
+    };
+  }
+}
+
+/**
  * Saves a previewed recipe to the database
  */
 export async function savePreviewedRecipeAction(
   name: string,
   ingredients: ExtractedIngredient[],
-  originalUrl: string
+  originalUrl: string,
+  imageUrl?: string
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -393,6 +455,7 @@ export async function savePreviewedRecipeAction(
       data: {
         name: name.trim(),
         originalUrl: originalUrl.trim(),
+        image: imageUrl || "https://via.placeholder.com/150",
         userId,
         ingredients: {
           create: recipeIngredients.map((ing) => ({
@@ -434,10 +497,10 @@ export async function importRecipeFromUrlAction(
     }
 
     // Step 1: Scrape the recipe from URL
-    const scrapedContent = await scrapeRecipeFromUrl(url.trim());
+    const scrapedData = await scrapeRecipeFromUrl(url.trim());
 
     // Step 2: Extract recipe data using OpenAI
-    const extractedData = await extractRecipeData(scrapedContent);
+    const extractedData = await extractRecipeData(scrapedData.text, scrapedData.images);
 
     if (!extractedData.name || extractedData.ingredients.length === 0) {
       return { 

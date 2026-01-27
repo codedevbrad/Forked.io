@@ -14,13 +14,16 @@ export type ExtractedIngredient = {
 export type ExtractedRecipeData = {
   name: string;
   ingredients: ExtractedIngredient[];
+  images?: string[];
 };
 
 /**
  * Extracts recipe name and ingredients from scraped recipe HTML/text using OpenAI
+ * Images are passed separately and included in the response
  */
 export async function extractRecipeData(
-  scrapedContent: string
+  scrapedContent: string,
+  images: string[] = []
 ): Promise<ExtractedRecipeData> {
   const prompt = `You are a recipe parser. Extract the recipe name and ingredients from the following recipe content.
 
@@ -77,7 +80,7 @@ Return only valid JSON, no additional text.`;
       throw new Error("No response from OpenAI");
     }
 
-    const parsed = JSON.parse(content) as ExtractedRecipeData;
+    const parsed = JSON.parse(content) as Omit<ExtractedRecipeData, 'images'>;
 
     // Validate and normalize the response
     if (!parsed.name || !parsed.ingredients || !Array.isArray(parsed.ingredients)) {
@@ -102,7 +105,10 @@ Return only valid JSON, no additional text.`;
         unit: ing.unit,
       }));
 
-    return parsed;
+    return {
+      ...parsed,
+      images: images.length > 0 ? images : undefined,
+    };
   } catch (error) {
     console.error("OpenAI extraction error:", error);
     throw new Error(

@@ -4,10 +4,11 @@ import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/src/components/ui/dialog";
-import { previewRecipeFromUrlAction, savePreviewedRecipeAction } from "@/src/domains/recipes/db";
+import { previewRecipeFromUrlAction, savePreviewedRecipeAction, uploadRecipeImageAction } from "@/src/domains/recipes/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
 import { Link2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import type { ExtractedIngredient } from "@/src/services/openai";
+import Image from "next/image";
 
 type ImportRecipeDialogProps = {
   onSuccess?: () => void;
@@ -20,7 +21,9 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [step, setStep] = useState<ImportStep>("idle");
-  const [previewData, setPreviewData] = useState<{ name: string; ingredients: ExtractedIngredient[] } | null>(null);
+  const [previewData, setPreviewData] = useState<{ name: string; ingredients: ExtractedIngredient[]; images: string[] } | null>(null);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { mutate } = useRecipes();
 
@@ -73,14 +76,31 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
     });
   };
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!previewData) return;
 
     startTransition(async () => {
+      let finalImageUrl: string | undefined;
+
+      // If an image is selected, upload it to R2
+      if (selectedImageUrl) {
+        setUploadingImage(true);
+        const uploadResult = await uploadRecipeImageAction(selectedImageUrl);
+        setUploadingImage(false);
+
+        if (!uploadResult.success) {
+          setError(uploadResult.error);
+          return;
+        }
+
+        finalImageUrl = uploadResult.data?.url;
+      }
+
       const result = await savePreviewedRecipeAction(
         previewData.name,
         previewData.ingredients,
-        url.trim()
+        url.trim(),
+        finalImageUrl
       );
 
       if (!result.success) {
@@ -90,6 +110,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
 
       setUrl("");
       setPreviewData(null);
+      setSelectedImageUrl(null);
       setStep("idle");
       setOpen(false);
       await mutate();
@@ -100,6 +121,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
   const handleCancel = () => {
     setUrl("");
     setPreviewData(null);
+    setSelectedImageUrl(null);
     setStep("idle");
     setError("");
     setOpen(false);
@@ -111,6 +133,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
       setUrl("");
       setError("");
       setPreviewData(null);
+      setSelectedImageUrl(null);
       setStep("idle");
     }
   };
@@ -267,6 +290,48 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                   </p>
                 </div>
 
+                {previewData.images && previewData.images.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Found Images</h3>
+                    <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                      {previewData.images.map((imgUrl, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setSelectedImageUrl(imgUrl === selectedImageUrl ? null : imgUrl)}
+                          className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${
+                            selectedImageUrl === imgUrl
+                              ? "border-primary ring-2 ring-primary ring-offset-2"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <Image
+                            src={imgUrl}
+                            alt={`Recipe image ${index + 1}`}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                            onError={(e) => {
+                              // Hide broken images
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                          {selectedImageUrl === imgUrl && (
+                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                              <CheckCircle2 className="w-8 h-8 text-primary" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    {selectedImageUrl && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Selected image will be uploaded to your storage
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Ingredients Found</h3>
                   <ul className="space-y-1 bg-muted p-3 rounded max-h-48 overflow-y-auto">
@@ -287,13 +352,13 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                 <div className="flex gap-2 pt-2">
                   <Button 
                     onClick={handleAccept} 
-                    disabled={isPending}
+                    disabled={isPending || uploadingImage}
                     className="flex-1"
                   >
-                    {isPending ? (
+                    {isPending || uploadingImage ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
+                        {uploadingImage ? "Uploading image..." : "Saving..."}
                       </>
                     ) : (
                       "Accept"
