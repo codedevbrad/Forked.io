@@ -10,6 +10,7 @@ import { Trash2, Pencil, X, List, Grid3x3, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { RecipeIngredientsPopover } from "./recipe-ingredients-popover";
+import { useLocalStorage } from "@/src/hooks/use-local-storage";
 
 type Tag = {
   id: string;
@@ -26,7 +27,7 @@ export function RecipesList() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("single");
+  const [viewMode, setViewMode] = useLocalStorage<ViewMode>("recipes-view-mode", "single");
 
   const handleDeleteClick = (id: string) => {
     setItemToDelete(id);

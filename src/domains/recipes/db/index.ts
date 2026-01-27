@@ -418,7 +418,8 @@ export async function savePreviewedRecipeAction(
     }
 
     // Step 3: Create or find ingredients and build recipe ingredient inputs
-    const recipeIngredients: RecipeIngredientInput[] = [];
+    // Use a Map to deduplicate ingredients by ingredientId
+    const recipeIngredientsMap = new Map<string, RecipeIngredientInput>();
     const userId = session.user.id as string;
 
     for (const extractedIng of ingredients) {
@@ -443,12 +444,29 @@ export async function savePreviewedRecipeAction(
         });
       }
 
-      recipeIngredients.push({
-        ingredientId: ingredient.id,
-        quantity: extractedIng.quantity,
-        unit: extractedIng.unit,
-      });
+      // Check if this ingredient already exists in the map
+      const existing = recipeIngredientsMap.get(ingredient.id);
+      
+      if (existing) {
+        // If same unit, combine quantities
+        if (existing.unit === extractedIng.unit) {
+          existing.quantity += extractedIng.quantity;
+        } else {
+          // If different units, keep the first one (you could also log a warning here)
+          // This prevents the unique constraint violation
+        }
+      } else {
+        // Add new ingredient to map
+        recipeIngredientsMap.set(ingredient.id, {
+          ingredientId: ingredient.id,
+          quantity: extractedIng.quantity,
+          unit: extractedIng.unit,
+        });
+      }
     }
+
+    // Convert map to array
+    const recipeIngredients = Array.from(recipeIngredientsMap.values());
 
     // Step 4: Create the recipe
     const recipe = await prisma.recipe.create({
@@ -510,7 +528,8 @@ export async function importRecipeFromUrlAction(
     }
 
     // Step 3: Create or find ingredients and build recipe ingredient inputs
-    const recipeIngredients: RecipeIngredientInput[] = [];
+    // Use a Map to deduplicate ingredients by ingredientId
+    const recipeIngredientsMap = new Map<string, RecipeIngredientInput>();
     const userId = session.user.id as string;
 
     for (const extractedIng of extractedData.ingredients) {
@@ -535,12 +554,29 @@ export async function importRecipeFromUrlAction(
         });
       }
 
-      recipeIngredients.push({
-        ingredientId: ingredient.id,
-        quantity: extractedIng.quantity,
-        unit: extractedIng.unit,
-      });
+      // Check if this ingredient already exists in the map
+      const existing = recipeIngredientsMap.get(ingredient.id);
+      
+      if (existing) {
+        // If same unit, combine quantities
+        if (existing.unit === extractedIng.unit) {
+          existing.quantity += extractedIng.quantity;
+        } else {
+          // If different units, keep the first one (you could also log a warning here)
+          // This prevents the unique constraint violation
+        }
+      } else {
+        // Add new ingredient to map
+        recipeIngredientsMap.set(ingredient.id, {
+          ingredientId: ingredient.id,
+          quantity: extractedIng.quantity,
+          unit: extractedIng.unit,
+        });
+      }
     }
+
+    // Convert map to array
+    const recipeIngredients = Array.from(recipeIngredientsMap.values());
 
     // Step 4: Create the recipe
     const recipe = await prisma.recipe.create({

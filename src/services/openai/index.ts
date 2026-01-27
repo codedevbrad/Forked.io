@@ -18,6 +18,55 @@ export type ExtractedRecipeData = {
 };
 
 /**
+ * Normalizes an ingredient name for comparison
+ * Removes common prefixes/suffixes and normalizes case
+ */
+function normalizeIngredientName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    // Remove common prefixes that don't change the ingredient identity
+    .replace(/^(toasted|roasted|raw|fresh|dried|ground|chopped|sliced|diced|minced|crushed)\s+/i, '')
+    .replace(/\s+(toasted|roasted|raw|fresh|dried|ground|chopped|sliced|diced|minced|crushed)$/i, '')
+    // Remove extra whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Combines duplicate ingredients by normalizing names and summing quantities
+ * Ingredients with the same normalized name and unit are combined
+ */
+function combineDuplicateIngredients(ingredients: ExtractedIngredient[]): ExtractedIngredient[] {
+  const combinedMap = new Map<string, ExtractedIngredient>();
+
+  for (const ing of ingredients) {
+    const normalizedName = normalizeIngredientName(ing.name);
+    const key = `${normalizedName}|${ing.unit}`;
+
+    const existing = combinedMap.get(key);
+    if (existing) {
+      // Combine quantities and keep the original name (prefer the shorter/more common one)
+      existing.quantity += ing.quantity;
+      // Prefer the shorter name or the one without prefixes
+      if (ing.name.length < existing.name.length || 
+          !ing.name.toLowerCase().match(/^(toasted|roasted|raw|fresh|dried|ground)/i)) {
+        existing.name = ing.name;
+      }
+    } else {
+      // Add new ingredient
+      combinedMap.set(key, {
+        name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+      });
+    }
+  }
+
+  return Array.from(combinedMap.values());
+}
+
+/**
  * Extracts recipe name and ingredients from scraped recipe HTML/text using OpenAI
  * Images are passed separately and included in the response
  */
@@ -89,7 +138,7 @@ Return only valid JSON, no additional text.`;
 
     // Validate units
     const validUnits: Unit[] = ["g", "kg", "ml", "l", "tbsp", "tsp", "piece"];
-    parsed.ingredients = parsed.ingredients
+    let validatedIngredients = parsed.ingredients
       .filter((ing) => {
         if (!ing.name || !validUnits.includes(ing.unit)) {
           return false;
@@ -105,8 +154,12 @@ Return only valid JSON, no additional text.`;
         unit: ing.unit,
       }));
 
+    // Combine duplicate ingredients
+    validatedIngredients = combineDuplicateIngredients(validatedIngredients);
+
     return {
       ...parsed,
+      ingredients: validatedIngredients,
       images: images.length > 0 ? images : undefined,
     };
   } catch (error) {

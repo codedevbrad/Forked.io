@@ -6,6 +6,12 @@ import { ShoppingListHeader } from "./shopping-list-header";
 import { RecipeTags } from "./recipe-tags";
 import { RecipeFilter } from "./recipe-filter";
 import { IngredientList } from "./ingredient-list";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/src/components/ui/sheet";
 
 type ShoppingListItemProps = {
   list: ShoppingList;
@@ -39,51 +45,55 @@ export function ShoppingListItem({
     );
   };
 
-  if (isEditing) {
-    return (
-      <div className="p-4 border rounded-lg space-y-2">
-        <ShoppingListForm
-          shoppingListId={list.id}
-          initialName={list.name}
-          initialIngredients={list.ingredients}
-          initialRecipes={
-            list.recipes?.map((r) => ({
-              id: r.recipe.id,
-              name: r.recipe.name,
-            })) || []
-          }
-          onSuccess={onEditSuccess}
-          onCancel={onEditCancel}
-        />
-      </div>
-    );
-  }
-
   const filteredIngredients = getFilteredIngredients();
 
   return (
-    <div className="p-4 border rounded-lg space-y-2">
-      <ShoppingListHeader
-        name={list.name}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        isPending={isPending}
-      />
-      <RecipeTags recipes={list.recipes || []} />
-      {list.ingredients && list.ingredients.length > 0 && (
-        <RecipeFilter
-          recipes={list.recipes}
-          selectedRecipeId={selectedRecipeFilter}
-          onRecipeChange={onRecipeFilterChange}
+    <>
+      <Sheet open={isEditing} onOpenChange={(open) => !open && onEditCancel()}>
+        <SheetContent className="overflow-y-auto p-6">
+          <SheetHeader>
+            <SheetTitle>Edit Shopping List</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <ShoppingListForm
+              shoppingListId={list.id}
+              initialName={list.name}
+              initialIngredients={list.ingredients}
+              initialRecipes={
+                list.recipes?.map((r) => ({
+                  id: r.recipe.id,
+                  name: r.recipe.name,
+                })) || []
+              }
+              onSuccess={onEditSuccess}
+              onCancel={onEditCancel}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+      <div className="p-4 border rounded-lg space-y-2">
+        <ShoppingListHeader
+          name={list.name}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          isPending={isPending}
         />
-      )}
-      {filteredIngredients && filteredIngredients.length > 0 ? (
-        <IngredientList ingredients={filteredIngredients} />
-      ) : list.ingredients && list.ingredients.length > 0 ? (
-        <p className="text-sm text-muted-foreground ml-4">
-          No ingredients match the selected filter.
-        </p>
-      ) : null}
-    </div>
+        <RecipeTags recipes={list.recipes || []} />
+        {list.ingredients && list.ingredients.length > 0 && (
+          <RecipeFilter
+            recipes={list.recipes}
+            selectedRecipeId={selectedRecipeFilter}
+            onRecipeChange={onRecipeFilterChange}
+          />
+        )}
+        {filteredIngredients && filteredIngredients.length > 0 ? (
+          <IngredientList ingredients={filteredIngredients} />
+        ) : list.ingredients && list.ingredients.length > 0 ? (
+          <p className="text-sm text-muted-foreground ml-4">
+            No ingredients match the selected filter.
+          </p>
+        ) : null}
+      </div>
+    </>
   );
 }
