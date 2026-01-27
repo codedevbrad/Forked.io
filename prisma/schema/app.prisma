@@ -1,12 +1,18 @@
-// model Discover {
-//   id String @id @default(cuid())
-//   name String
-//   description String
-//   image String
-//   url String
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
+enum DiscoverType {
+  YOUTUBE 
+  TIKTOK
+  INSTAGRAM
+}
+
+model DiscoverVideo {
+  id String @id @default(cuid())
+  name String
+  description String
+  url String
+  type DiscoverType
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 
 model RecipeWebsites {
@@ -16,14 +22,3 @@ model RecipeWebsites {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-// model IngredientGlobal {
-//   id String @id @default(cuid())
-//   name String
-//   description String
-
-//   store String
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }

@@ -39,7 +39,6 @@ export function IngredientList({
     <div className="space-y-2">
       <ul className="text-sm text-muted-foreground space-y-1 ml-4 grid grid-cols-2 gap-2">
         {paginatedIngredients.map((ing) => (
-       
             <IngredientItem key={ing.id} ingredient={ing} />
         ))}
       </ul>

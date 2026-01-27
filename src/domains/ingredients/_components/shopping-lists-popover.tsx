@@ -189,9 +189,9 @@ export function ShoppingListsPopover() {
                   <p className="text-xs font-medium text-muted-foreground">Items:</p>
                   <ul className="space-y-1 text-sm">
                     {selectedList.ingredients.map((ing) => (
-                      <li key={ing.id} className="flex items-center gap-2">
+                      <li key={ing.id} className="flex items-center gap-2 border rounded-md my-3 p-2 pl-4 shadow-md">
                         <span>
-                          • {ing.quantity} {ing.unit} {ing.ingredient.name}
+                           {ing.quantity} {ing.unit} {ing.ingredient.name}
                         </span>
                         {ing.recipe && (
                           <span title={`From recipe: ${ing.recipe.name}`}>

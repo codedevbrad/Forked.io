@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import { ChefHat } from "lucide-react";
-import { ShoppingListIngredient } from "./types";
+import { ChefHat } from "lucide-react"
+import { ShoppingListIngredient } from "./types"
 
 type IngredientItemProps = {
   ingredient: ShoppingListIngredient;
@@ -9,13 +9,13 @@ type IngredientItemProps = {
 
 export function IngredientItem({ ingredient }: IngredientItemProps) {
   return (
-    <li className="flex items-center gap-2">
-      <span>
-        • {ingredient.quantity} {ingredient.unit} {ingredient.ingredient.name}
+    <li className="flex items-center gap-2 border rounded-md my-1 p-2 pl-4 shadow-md">
+      <span className="text-sm text-gray-700">
+       {ingredient.quantity} {ingredient.unit} {ingredient.ingredient.name}
       </span>
       {ingredient.recipe && (
         <span title={`From recipe: ${ingredient.recipe.name}`}>
-          <ChefHat className="w-3 h-3 text-muted-foreground" />
+          <ChefHat className="w-3 h-3" />
         </span>
       )}
     </li>

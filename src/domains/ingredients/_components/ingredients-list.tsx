@@ -181,7 +181,7 @@ export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
                   </Button>
                 </div>
                 {/* Status indicators */}
-                <div className="absolute top-2 right-2 flex gap-1.5">
+                <div className="absolute bottom-2 right-2 flex gap-1.5">
                   {ingredientsInShoppingLists.has(ingredient.id) && (
                     <div
                       className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
