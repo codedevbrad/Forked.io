@@ -7,6 +7,8 @@ import { CreateIngredientPopover } from "./create-ingredient-popover";
 import { IngredientsFilter } from "./ingredients-filter";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useUser } from "@/src/domains/user/_contexts/useUser";
+import { Button } from "@/src/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Ingredient = {
   id: string;
@@ -17,15 +19,29 @@ type Ingredient = {
   storeLinks?: Array<{ id: string; url: string }>;
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export function IngredientsPageClient() {
   const { data: user, isLoading: userLoading } = useUser();
   const { data: ingredients = [], isLoading } = useIngredients();
   const [filteredIngredients, setFilteredIngredients] = useState<Ingredient[]>(ingredients);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Update filtered ingredients when ingredients change
   useEffect(() => {
     setFilteredIngredients(ingredients);
   }, [ingredients]);
+
+  // Reset to page 1 when filtered ingredients change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredIngredients.length]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredIngredients.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedIngredients = filteredIngredients.slice(startIndex, endIndex);
 
   return (
     <div className="container mx-auto max-w-6xl py-8 px-4">
@@ -51,8 +67,44 @@ export function IngredientsPageClient() {
         )}
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Your Ingredients</h2>
-          <IngredientsList filteredIngredients={filteredIngredients} />
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Your Ingredients</h2>
+            {filteredIngredients.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(endIndex, filteredIngredients.length)} of {filteredIngredients.length}
+              </p>
+            )}
+          </div>
+          <IngredientsList filteredIngredients={paginatedIngredients} />
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
