@@ -4,30 +4,33 @@ import { useState, useEffect } from "react";
 import { IngredientsList } from "../../../../../domains/ingredients/_components/ingredients-list";
 import { CreateIngredientPopover } from "./create-ingredient-popover";
 import { IngredientsFilter } from "./ingredients-filter";
+import { IngredientsStatusFilter } from "./ingredients-status-filter";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
-import { useUser } from "@/src/domains/user/_contexts/useUser";
 import { Button } from "@/src/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { IngredientType, StorageType } from "@prisma/client";
 
 type Ingredient = {
   id: string;
   name: string;
-  type: string;
-  storageType: string | null;
+  type: IngredientType;
+  storageType: StorageType | null;
   tag: Array<{ id: string; name: string; color: string }>;
+  category: { id: string; name: string; color: string; icon?: string | null } | null;
   storeLinks?: Array<{ id: string; url: string }>;
 };
 
 const ITEMS_PER_PAGE = 10;
 
 export function IngredientsPageClient() {
-  const { data: user, isLoading: userLoading } = useUser();
   const { data: ingredients = [], isLoading } = useIngredients();
+  const [filteredByMainFilter, setFilteredByMainFilter] = useState<Ingredient[]>(ingredients);
   const [filteredIngredients, setFilteredIngredients] = useState<Ingredient[]>(ingredients);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Update filtered ingredients when ingredients change
   useEffect(() => {
+    setFilteredByMainFilter(ingredients);
     setFilteredIngredients(ingredients);
   }, [ingredients]);
 
@@ -60,6 +63,12 @@ export function IngredientsPageClient() {
             {/* Filter Section */}
             <IngredientsFilter
               ingredients={ingredients}
+              onFilterChange={setFilteredByMainFilter}
+            />
+            
+            {/* Status Filter Pills */}
+            <IngredientsStatusFilter
+              ingredients={filteredByMainFilter}
               onFilterChange={setFilteredIngredients}
             />
           </>

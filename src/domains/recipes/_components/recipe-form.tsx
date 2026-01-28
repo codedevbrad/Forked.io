@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
-import { createRecipeAction, updateRecipeAction, RecipeIngredientInput } from "@/src/domains/recipes/db";
+import { createRecipeAction, RecipeIngredientInput } from "@/src/domains/recipes/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
 import { TagSelector } from "@/src/domains/ingredients/_components/tag-selector";
@@ -18,14 +18,7 @@ type RecipeIngredientFormData = {
 };
 
 type RecipeFormProps = {
-  recipeId?: string;
   initialName?: string;
-  initialIngredients?: Array<{
-    ingredientId: string;
-    ingredient: { id: string; name: string };
-    quantity: number;
-    unit: Unit;
-  }>;
   initialTags?: Array<{
     id: string;
     name: string;
@@ -36,9 +29,7 @@ type RecipeFormProps = {
 };
 
 export function RecipeForm({ 
-  recipeId, 
   initialName = "", 
-  initialIngredients = [],
   initialTags = [],
   onSuccess,
   onCancel 
@@ -51,31 +42,6 @@ export function RecipeForm({
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
-  const isEditing = !!recipeId;
-  const prevRecipeIdRef = useRef<string | undefined>(recipeId);
-  const isInitialMountRef = useRef(true);
-
-  useEffect(() => {
-    // Only sync state when recipeId changes (switching to edit a different recipe)
-    // or on initial mount. This prevents resetting the form while user is typing.
-    const recipeIdChanged = prevRecipeIdRef.current !== recipeId;
-    
-    if (recipeIdChanged || isInitialMountRef.current) {
-      prevRecipeIdRef.current = recipeId;
-      isInitialMountRef.current = false;
-      setName(initialName);
-      setRecipeIngredients(
-        initialIngredients.length > 0
-          ? initialIngredients.map((ing) => ({
-              ingredientId: ing.ingredientId,
-              quantity: ing.quantity.toString(),
-              unit: ing.unit,
-            }))
-          : []
-      );
-      setSelectedTagIds(initialTags.map(tag => tag.id));
-    }
-  }, [recipeId, initialName, initialIngredients, initialTags]);
 
   const addIngredient = () => {
     setRecipeIngredients([
@@ -185,9 +151,7 @@ export function RecipeForm({
     }
 
     startTransition(async () => {
-      const result = isEditing
-        ? await updateRecipeAction(recipeId, name, validIngredients, selectedTagIds)
-        : await createRecipeAction(name, validIngredients, selectedTagIds);
+      const result = await createRecipeAction(name, validIngredients, selectedTagIds);
 
       if (!result.success) {
         setError(result.error);
@@ -202,143 +166,7 @@ export function RecipeForm({
     });
   };
 
-  // For editing mode, show all steps at once (no wizard)
-  if (isEditing) {
-    return (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <label htmlFor="name" className="text-sm font-medium">
-            Recipe Name
-          </label>
-          <Input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            disabled={isPending}
-            placeholder="e.g., Chocolate Cake, Pasta Carbonara"
-            autoFocus
-          />
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">Ingredients</label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addIngredient}
-              disabled={isPending}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add
-            </Button>
-          </div>
-
-          {recipeIngredients.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No ingredients added. Click &quot;Add&quot; to add ingredients to this recipe.
-            </p>
-          )}
-
-          <div className="space-y-2">
-            {recipeIngredients.map((ing, index) => (
-              <div key={index} className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <Select
-                    value={ing.ingredientId}
-                    onValueChange={(value) => updateIngredient(index, "ingredientId", value)}
-                    disabled={isPending}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select ingredient" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ingredients?.map((ingredient) => (
-                        <SelectItem key={ingredient.id} value={ingredient.id}>
-                          {ingredient.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-24">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={ing.quantity}
-                    onChange={(e) => updateIngredient(index, "quantity", e.target.value)}
-                    placeholder="Qty"
-                    disabled={isPending}
-                  />
-                </div>
-                <div className="w-32">
-                  <Select
-                    value={ing.unit}
-                    onValueChange={(value) => updateIngredient(index, "unit", value as Unit)}
-                    disabled={isPending}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(Unit).map((unit) => (
-                        <SelectItem key={unit} value={unit}>
-                          {unit}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeIngredient(index)}
-                  disabled={isPending}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <TagSelector
-          selectedTagIds={selectedTagIds}
-          onSelectionChange={setSelectedTagIds}
-          disabled={isPending}
-        />
-
-        {error && (
-          <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
-            {error}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <Button type="submit" disabled={isPending} className="flex-1">
-            {isPending ? "Updating..." : "Update Recipe"}
-          </Button>
-          {onCancel && (
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onCancel}
-              disabled={isPending}
-            >
-              Cancel
-            </Button>
-          )}
-        </div>
-      </form>
-    );
-  }
-
-  // For creation mode, show 4-step wizard
+  // Show 4-step wizard for recipe creation
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Step Indicator */}

@@ -3,7 +3,6 @@
 import { useState, useTransition, useMemo } from "react";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
-import { RecipeForm } from "@/src/domains/recipes/_components/recipe-form";
 import { deleteRecipeAction } from "@/src/domains/recipes/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
 import { Trash2, Pencil, X, List, Grid3x3, LayoutGrid } from "lucide-react";
@@ -11,6 +10,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { RecipeIngredientsPopover } from "./recipe-ingredients-popover";
 import { useLocalStorage } from "@/src/hooks/use-local-storage";
+import { EditRecipeDrawer } from "./edit-recipe-drawer";
 
 type Tag = {
   id: string;
@@ -20,9 +20,25 @@ type Tag = {
 
 type ViewMode = "single" | "small-grid" | "large-grid";
 
+type Recipe = {
+  id: string;
+  name: string;
+  ingredients: Array<{
+    ingredientId: string;
+    ingredient: { id: string; name: string };
+    quantity: number;
+    unit: string;
+  }>;
+  tags?: Array<{
+    id: string;
+    name: string;
+    color: string;
+  }>;
+};
+
 export function RecipesList() {
   const { data: recipes, isLoading, error, mutate } = useRecipes();
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -48,8 +64,13 @@ export function RecipesList() {
     });
   };
 
+  const handleEditClick = (recipe: Recipe) => {
+    setEditingRecipeId(recipe.id);
+  };
+
   const handleEditSuccess = () => {
-    setEditingId(null);
+    setEditingRecipeId(null);
+    mutate();
   };
 
   // Extract all unique tags from recipes
@@ -114,6 +135,16 @@ export function RecipesList() {
         cancelText="Cancel"
         onConfirm={handleDeleteConfirm}
         variant="destructive"
+      />
+      <EditRecipeDrawer
+        recipeId={editingRecipeId}
+        open={!!editingRecipeId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingRecipeId(null);
+          }
+        }}
+        onSuccess={handleEditSuccess}
       />
       <div className="space-y-4">
         {/* View Mode Selector */}
@@ -225,27 +256,15 @@ export function RecipesList() {
           >
             {filteredRecipes.map((recipe) => (
               <div key={recipe.id}>
-                {editingId === recipe.id ? (
-                  <div className="p-4 border rounded-lg space-y-2">
-                    <RecipeForm
-                      recipeId={recipe.id}
-                      initialName={recipe.name}
-                      initialIngredients={recipe.ingredients}
-                      initialTags={recipe.tags || []}
-                      onSuccess={handleEditSuccess}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className={`border rounded-lg space-y-3 ${
-                      viewMode === "single"
-                        ? "p-4"
-                        : viewMode === "small-grid"
-                        ? "p-3"
-                        : "p-4"
-                    }`}
-                  >
+                <div
+                  className={`border rounded-lg space-y-3 ${
+                    viewMode === "single"
+                      ? "p-4"
+                      : viewMode === "small-grid"
+                      ? "p-3"
+                      : "p-4"
+                  }`}
+                >
                     {/* Recipe Image */}
                     {recipe.image && (
                       <div
@@ -324,7 +343,7 @@ export function RecipesList() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => setEditingId(recipe.id)}
+                          onClick={() => handleEditClick(recipe)}
                           disabled={isPending}
                         >
                           <Pencil className="w-4 h-4" />
@@ -362,7 +381,6 @@ export function RecipesList() {
                       )}
                     </div>
                   </div>
-                )}
               </div>
             ))}
           </div>
