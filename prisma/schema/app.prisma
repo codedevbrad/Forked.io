@@ -19,6 +19,9 @@ model RecipeWebsites {
   id String @id @default(cuid())
   name String
   url String
+  description String @default("")
+  imageURL String @default("https://via.placeholder.com/150")
+  logoURL String @default("https://via.placeholder.com/150")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

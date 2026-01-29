@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { previewRecipeFromUrlAction, savePreviewedRecipeAction, uploadRecipeImageAction } from "@/src/domains/recipes/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
 import { Link2, Loader2, CheckCircle2, Circle } from "lucide-react";
-import type { ExtractedIngredient } from "@/src/services/openai";
+import type { ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
 import Image from "next/image";
 
 type ImportRecipeDialogProps = {

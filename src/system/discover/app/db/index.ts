@@ -3,6 +3,7 @@
 import { prisma } from "@/src/lib/db";
 import { ActionResult } from "@/src/domains/user/db";
 import { DiscoverType } from "@prisma/client";
+import { scrapeWebsiteMeta, type ScrapedWebsiteMeta } from "@/src/generate/fetch.website/scrape.website";
 
 // DiscoverVideo Actions
 export async function getDiscoverVideosAction() {
@@ -111,6 +112,24 @@ export async function deleteDiscoverVideoAction(id: string): Promise<ActionResul
 }
 
 // RecipeWebsites Actions
+export async function scrapeRecipeWebsiteAction(
+  url: string
+): Promise<ActionResult<ScrapedWebsiteMeta>> {
+  try {
+    if (!url || url.trim().length === 0) {
+      return { success: false, error: "URL is required" };
+    }
+    const meta = await scrapeWebsiteMeta(url.trim());
+    return { success: true, data: meta };
+  } catch (error) {
+    console.error("Scrape recipe website error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to scrape website",
+    };
+  }
+}
+
 export async function getRecipeWebsitesAction() {
   try {
     const websites = await prisma.recipeWebsites.findMany({
@@ -141,7 +160,8 @@ export async function getRecipeWebsiteAction(id: string) {
 
 export async function createRecipeWebsiteAction(
   name: string,
-  url: string
+  url: string,
+  options?: { description?: string; imageURL?: string; logoURL?: string }
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     if (!name || name.trim().length === 0) {
@@ -156,6 +176,9 @@ export async function createRecipeWebsiteAction(
       data: {
         name: name.trim(),
         url: url.trim(),
+        description: options?.description?.trim() ?? "",
+        imageURL: options?.imageURL?.trim() ?? "https://via.placeholder.com/150",
+        logoURL: options?.logoURL?.trim() ?? "https://via.placeholder.com/150",
       },
     });
 
@@ -169,7 +192,8 @@ export async function createRecipeWebsiteAction(
 export async function updateRecipeWebsiteAction(
   id: string,
   name: string,
-  url: string
+  url: string,
+  options?: { description?: string; imageURL?: string; logoURL?: string }
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     if (!name || name.trim().length === 0) {
@@ -185,6 +209,11 @@ export async function updateRecipeWebsiteAction(
       data: {
         name: name.trim(),
         url: url.trim(),
+        ...(options != null && {
+          description: options.description?.trim() ?? "",
+          imageURL: options.imageURL?.trim() ?? "https://via.placeholder.com/150",
+          logoURL: options.logoURL?.trim() ?? "https://via.placeholder.com/150",
+        }),
       },
     });
 

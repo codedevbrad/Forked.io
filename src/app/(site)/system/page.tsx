@@ -14,9 +14,7 @@ export default function SystemPage() {
             
             <div className="space-y-8">
                 <DiscoverVideoManagement />
-                
                 <Separator />
-                
                 <RecipeWebsiteManagement />
             </div>
         </div>

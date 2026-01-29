@@ -12,6 +12,7 @@ import {
 } from "@/src/components/ui/dialog";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { RecipeWebsiteForm } from "./recipe-website-form";
+import { CreateRecipeWebsiteByUrl } from "./create-recipe-website-by-url";
 import { useRecipeWebsites } from "../_contexts/useRecipeWebsites";
 import { deleteRecipeWebsiteAction } from "../db";
 import { RecipeWebsites } from "@prisma/client";
@@ -63,10 +64,10 @@ export function RecipeWebsiteManagement() {
             <DialogHeader>
               <DialogTitle>Create New Recipe Website</DialogTitle>
               <DialogDescription>
-                Add a new recipe website to discover recipes from
+                Paste a URL to fetch name, description and images from the site
               </DialogDescription>
             </DialogHeader>
-            <RecipeWebsiteForm
+            <CreateRecipeWebsiteByUrl
               onSuccess={() => setCreateOpen(false)}
               onCancel={() => setCreateOpen(false)}
             />
@@ -136,6 +137,9 @@ export function RecipeWebsiteManagement() {
               websiteId={editingWebsite.id}
               initialName={editingWebsite.name}
               initialUrl={editingWebsite.url}
+              initialDescription={editingWebsite.description}
+              initialImageURL={editingWebsite.imageURL}
+              initialLogoURL={editingWebsite.logoURL}
               onSuccess={handleCloseEdit}
               onCancel={handleCloseEdit}
             />

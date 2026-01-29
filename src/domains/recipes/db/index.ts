@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
 import { Unit, IngredientType } from "@prisma/client";
 import { scrapeRecipeFromUrl } from "@/src/services/scraper";
-import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai";
+import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
 import { uploadRecipeImageToR2 } from "@/src/lib/cloudflare";
 
 export type RecipeIngredientInput = {

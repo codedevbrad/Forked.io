@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { deleteRecipeAction } from "@/src/domains/recipes/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
-import { Trash2, Pencil, X, List, Grid3x3, LayoutGrid } from "lucide-react";
+import { Trash2, Pencil, X, List, Grid3x3, LayoutGrid, Eye } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { RecipeIngredientsPopover } from "./recipe-ingredients-popover";
 import { useLocalStorage } from "@/src/hooks/use-local-storage";
@@ -37,6 +39,8 @@ type Recipe = {
 };
 
 export function RecipesList() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: recipes, isLoading, error, mutate } = useRecipes();
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -44,6 +48,9 @@ export function RecipesList() {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>("recipes-view-mode", "single");
+
+  const editIdFromUrl = searchParams.get("edit");
+  const effectiveEditId = editingRecipeId || editIdFromUrl;
 
   const handleDeleteClick = (id: string) => {
     setItemToDelete(id);
@@ -71,6 +78,9 @@ export function RecipesList() {
   const handleEditSuccess = () => {
     setEditingRecipeId(null);
     mutate();
+    if (editIdFromUrl) {
+      router.replace("/my/recipes", { scroll: false });
+    }
   };
 
   // Extract all unique tags from recipes
@@ -137,11 +147,14 @@ export function RecipesList() {
         variant="destructive"
       />
       <EditRecipeDrawer
-        recipeId={editingRecipeId}
-        open={!!editingRecipeId}
+        recipeId={effectiveEditId}
+        open={!!effectiveEditId}
         onOpenChange={(open) => {
           if (!open) {
             setEditingRecipeId(null);
+            if (editIdFromUrl) {
+              router.replace("/my/recipes", { scroll: false });
+            }
           }
         }}
         onSuccess={handleEditSuccess}
@@ -309,15 +322,16 @@ export function RecipesList() {
                               : "text-lg"
                           }`}
                         >
-                          <h3
-                            className={
+                          <Link
+                            href={`/my/recipes/${recipe.id}`}
+                            className={`hover:underline ${
                               viewMode === "small-grid"
-                                ? "break-words"
+                                ? "wrap-break-word"
                                 : "truncate"
-                            }
+                            }`}
                           >
                             {recipe.name}
-                          </h3>
+                          </Link>
                           {recipe.originalUrl && viewMode !== "small-grid" && (
                             <Link
                               href={recipe.originalUrl}
@@ -339,6 +353,17 @@ export function RecipesList() {
                         )}
                       </div>
                       <div className="flex gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          asChild
+                          title="View recipe"
+                        >
+                          <Link href={`/my/recipes/${recipe.id}`}>
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
