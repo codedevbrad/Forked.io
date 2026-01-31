@@ -11,4 +11,5 @@ model User {
   stored Stored[]
   shoppingLists ShoppingList[]
   tags Tag[]
+  shopProducts ShopProduct[]
 }

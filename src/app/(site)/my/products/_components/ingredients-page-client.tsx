@@ -50,9 +50,10 @@ export function IngredientsPageClient() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">My Ingredients</h1>
+            <h1 className="text-3xl font-bold mb-2">My Products </h1>
             <p className="text-muted-foreground">
-              Manage your ingredients. Create, edit, and delete ingredients to use in recipes and storage.
+              Manage your products and ingredients. 
+              Create, edit, and delete ingredients to use in recipes and storage.
             </p>
           </div>
           <CreateIngredientPopover />

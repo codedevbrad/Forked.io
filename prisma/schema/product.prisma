@@ -1,0 +1,21 @@
+enum Retailer {
+  TESCO
+  MORRISONS
+  SAINSBURYS
+  ASDA
+}
+
+model ShopProduct {
+  id            String     @id @default(cuid())
+  retailer      Retailer
+  productName   String     // "Finest Chicken Tikka Masala", "Oranges 6 Pack"
+  url           String?
+  price         Int?  // optional, in pence/cents
+  size          Int?  // optional, in grams/ml/etc
+  unit          Unit?
+  imageUrl      String?
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}

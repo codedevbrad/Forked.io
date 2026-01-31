@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@/src/domains/user/_contexts/useUser";
 import { useStoredLocation } from "@/src/domains/stored/_contexts/useStored";
-import { StoredIngredientsList } from "./_components/stored-ingredients-list";
+import { StoredIngredientsList } from "./_components/storedIngredients/stored-ingredients-list";
 import { AddIngredientToStoredPopover } from "./_components/add-ingredient-to-stored-popover";
 import { StorageType } from "@prisma/client";
 

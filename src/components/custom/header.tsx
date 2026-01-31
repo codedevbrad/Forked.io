@@ -40,8 +40,8 @@ export function Header() {
                <li> <Link href="/my/">Home</Link></li>
                <li> <Link href="/my/discover">Discover</Link></li>
                <li> 
-                 <Link href="/my/ingredients" className="flex items-center gap-1.5">
-                   Ingredients
+                 <Link href="/my/products" className="flex items-center gap-1.5">
+                   Products
                    <span className="text-xs text-muted-foreground">({ingredientsCount})</span>
                  </Link>
                </li>

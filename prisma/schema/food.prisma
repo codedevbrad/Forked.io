@@ -78,7 +78,7 @@ model Ingredient {
 
   recipeIngredients RecipeIngredient[]
   storedIngredients StoredIngredient[]
-  shoppingListIngredients ShoppingListIngredient[]  
+  shoppingListIngredients ShoppingListIngredient[] 
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

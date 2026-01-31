@@ -1,4 +1,7 @@
 -- CreateEnum
+CREATE TYPE "DiscoverType" AS ENUM ('YOUTUBE', 'TIKTOK', 'INSTAGRAM');
+
+-- CreateEnum
 CREATE TYPE "Unit" AS ENUM ('g', 'kg', 'ml', 'l', 'tbsp', 'tsp', 'piece');
 
 -- CreateEnum
@@ -6,6 +9,36 @@ CREATE TYPE "StorageType" AS ENUM ('pantry', 'fridge', 'freezer');
 
 -- CreateEnum
 CREATE TYPE "IngredientType" AS ENUM ('food', 'drink', 'condiment', 'cleaning', 'household');
+
+-- CreateEnum
+CREATE TYPE "Retailer" AS ENUM ('TESCO', 'MORRISONS', 'SAINSBURYS', 'ASDA');
+
+-- CreateTable
+CREATE TABLE "DiscoverVideo" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "type" "DiscoverType" NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DiscoverVideo_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RecipeWebsites" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "description" TEXT NOT NULL DEFAULT '',
+    "imageURL" TEXT NOT NULL DEFAULT 'https://via.placeholder.com/150',
+    "logoURL" TEXT NOT NULL DEFAULT 'https://via.placeholder.com/150',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "RecipeWebsites_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Tag" (
@@ -27,11 +60,24 @@ CREATE TABLE "StoreLink" (
 );
 
 -- CreateTable
+CREATE TABLE "Category" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "color" TEXT NOT NULL,
+    "icon" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Category_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Ingredient" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "type" "IngredientType" NOT NULL,
     "storageType" "StorageType",
+    "categoryId" TEXT,
     "userId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -44,6 +90,7 @@ CREATE TABLE "Recipe" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "originalUrl" TEXT,
+    "image" TEXT NOT NULL DEFAULT 'https://via.placeholder.com/150',
     "userId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -107,10 +154,37 @@ CREATE TABLE "ShoppingListIngredient" (
     "ingredientId" TEXT NOT NULL,
     "quantity" DOUBLE PRECISION NOT NULL,
     "unit" "Unit" NOT NULL,
+    "recipeId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "ShoppingListIngredient_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ShoppingListRecipe" (
+    "id" TEXT NOT NULL,
+    "shoppingListId" TEXT NOT NULL,
+    "recipeId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ShoppingListRecipe_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ShopProduct" (
+    "id" TEXT NOT NULL,
+    "retailer" "Retailer" NOT NULL,
+    "productName" TEXT NOT NULL,
+    "url" TEXT,
+    "price" DECIMAL(65,30),
+    "imageUrl" TEXT,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ShopProduct_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -141,6 +215,9 @@ CREATE TABLE "_RecipeToTag" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Ingredient_userId_name_key" ON "Ingredient"("userId", "name");
 
 -- CreateIndex
@@ -151,6 +228,9 @@ CREATE UNIQUE INDEX "StoredIngredient_storedId_ingredientId_key" ON "StoredIngre
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ShoppingList_userId_name_key" ON "ShoppingList"("userId", "name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ShoppingListRecipe_shoppingListId_recipeId_key" ON "ShoppingListRecipe"("shoppingListId", "recipeId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
@@ -166,6 +246,9 @@ ALTER TABLE "Tag" ADD CONSTRAINT "Tag_userId_fkey" FOREIGN KEY ("userId") REFERE
 
 -- AddForeignKey
 ALTER TABLE "StoreLink" ADD CONSTRAINT "StoreLink_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "Ingredient"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Ingredient" ADD CONSTRAINT "Ingredient_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Ingredient" ADD CONSTRAINT "Ingredient_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -196,6 +279,18 @@ ALTER TABLE "ShoppingListIngredient" ADD CONSTRAINT "ShoppingListIngredient_shop
 
 -- AddForeignKey
 ALTER TABLE "ShoppingListIngredient" ADD CONSTRAINT "ShoppingListIngredient_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "Ingredient"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShoppingListIngredient" ADD CONSTRAINT "ShoppingListIngredient_recipeId_fkey" FOREIGN KEY ("recipeId") REFERENCES "Recipe"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShoppingListRecipe" ADD CONSTRAINT "ShoppingListRecipe_shoppingListId_fkey" FOREIGN KEY ("shoppingListId") REFERENCES "ShoppingList"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShoppingListRecipe" ADD CONSTRAINT "ShoppingListRecipe_recipeId_fkey" FOREIGN KEY ("recipeId") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShopProduct" ADD CONSTRAINT "ShopProduct_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_IngredientToTag" ADD CONSTRAINT "_IngredientToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Ingredient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
