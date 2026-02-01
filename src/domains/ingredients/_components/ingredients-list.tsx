@@ -13,13 +13,16 @@ import { useStored } from "@/src/domains/stored/_contexts/useStored";
 import { Trash2, Pencil, ExternalLink, ShoppingCart, Package } from "lucide-react";
 import { IngredientType, StorageType } from "@prisma/client";
 
+/** Type/category from linked ShopIngredient (one-to-one) */
 type Ingredient = {
   id: string;
   name: string;
-  type: IngredientType;
-  storageType: StorageType | null;
+  shopIngredient?: {
+    type: IngredientType;
+    storageType: StorageType | null;
+    category: { id: string; name: string; color: string; icon?: string | null } | null;
+  } | null;
   tag: Array<{ id: string; name: string; color: string }>;
-  category: { id: string; name: string; color: string; icon?: string | null } | null;
   storeLinks?: Array<{ id: string; url: string }>;
 };
 
@@ -144,10 +147,10 @@ export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
                 editingId === ingredient.id ? (
                   <IngredientForm
                     ingredientId={ingredient.id}
-                    initialName={ingredient.name}
-                    initialType={ingredient.type}
-                    initialStorageType={ingredient.storageType}
-                    initialCategoryId={ingredient.category?.id || null}
+                    initialName={ingredient.shopIngredient?.name ?? ""}
+                    initialType={ingredient.shopIngredient?.type}
+                    initialStorageType={ingredient.shopIngredient?.storageType ?? undefined}
+                    initialCategoryId={ingredient.shopIngredient?.category?.id ?? null}
                     initialTagIds={ingredient.tag.map(t => t.id)}
                     initialStoreLinks={ingredient.storeLinks?.map(sl => sl.url) || []}
                     onSuccess={handleEditSuccess}

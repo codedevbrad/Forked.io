@@ -5,11 +5,9 @@ import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
 import { IngredientType, StorageType } from "@prisma/client";
 
+/** User no longer fills type/storageType/category; those come from ShopIngredient when linked. */
 export async function createIngredientAction(
   name: string,
-  type: IngredientType,
-  storageType?: StorageType | null,
-  categoryId?: string | null,
   tagIds?: string[],
   storeLinks?: string[]
 ): Promise<ActionResult<{ id: string; name: string }>> {
@@ -24,29 +22,16 @@ export async function createIngredientAction(
       return { success: false, error: "Ingredient name is required" };
     }
 
-    // Check if ingredient already exists for this user
-    const existing = await prisma.ingredient.findUnique({
+    // Check if ingredient already exists for this user (by ShopIngredient name)
+    const existing = await prisma.ingredient.findFirst({
       where: {
-        userId_name: {
-          userId: session.user.id as string,
-          name: name.trim(),
-        },
+        userId: session.user.id as string,
+        shopIngredient: { name: name.trim() },
       },
     });
 
     if (existing) {
       return { success: false, error: "Ingredient already exists" };
-    }
-
-    // Verify category exists if categoryId provided
-    if (categoryId) {
-      const category = await prisma.category.findUnique({
-        where: { id: categoryId },
-      });
-
-      if (!category) {
-        return { success: false, error: "Category not found" };
-      }
     }
 
     // Verify tag ownership if tagIds provided
@@ -63,13 +48,19 @@ export async function createIngredientAction(
       }
     }
 
-    const ingredient = await prisma.ingredient.create({
+    // Create ShopIngredient first (name lives there), then Ingredient linked to it
+    const shop = await prisma.shopIngredient.create({
       data: {
         name: name.trim(),
-        type,
-        storageType: storageType || null,
-        categoryId: categoryId || null,
+        type: IngredientType.food,
+        storageType: null,
+        categoryId: null,
+      },
+    });
+    const ingredient = await prisma.ingredient.create({
+      data: {
         userId: session.user.id as string,
+        shopIngredientId: shop.id,
         tag: tagIds && tagIds.length > 0 ? {
           connect: tagIds.map(id => ({ id }))
         } : undefined,
@@ -80,13 +71,13 @@ export async function createIngredientAction(
         } : undefined,
       },
       include: {
-        category: true,
         tag: true,
         storeLinks: true,
+        shopIngredient: { include: { category: true } },
       },
     });
 
-    return { success: true, data: { id: ingredient.id, name: ingredient.name } };
+    return { success: true, data: { id: ingredient.id, name: ingredient.shopIngredient?.name ?? name.trim() } };
   } catch (error) {
     console.error("Create ingredient error:", error);
     return { success: false, error: "Failed to create ingredient" };
@@ -125,17 +116,16 @@ export async function updateIngredientAction(
       return { success: false, error: "Ingredient not found" };
     }
 
-    // Check if new name conflicts with another ingredient
-    const nameConflict = await prisma.ingredient.findUnique({
+    // Check if new name conflicts with another ingredient (by ShopIngredient name)
+    const nameConflict = await prisma.ingredient.findFirst({
       where: {
-        userId_name: {
-          userId: session.user.id as string,
-          name: name.trim(),
-        },
+        userId: session.user.id as string,
+        shopIngredient: { name: name.trim() },
+        id: { not: id },
       },
     });
 
-    if (nameConflict && nameConflict.id !== id) {
+    if (nameConflict) {
       return { success: false, error: "An ingredient with this name already exists" };
     }
 
@@ -166,21 +156,10 @@ export async function updateIngredientAction(
       }
     }
 
-    const updateData: any = {
-      name: name.trim(),
-    };
-
-    if (type !== undefined) {
-      updateData.type = type;
-    }
-
-    if (storageType !== undefined) {
-      updateData.storageType = storageType || null;
-    }
-
-    if (categoryId !== undefined) {
-      updateData.categoryId = categoryId || null;
-    }
+    const updateData: {
+      tag?: { set: { id: string }[] };
+      storeLinks?: { create: { url: string }[] };
+    } = {};
 
     if (tagIds !== undefined) {
       updateData.tag = {
@@ -203,17 +182,48 @@ export async function updateIngredientAction(
       }
     }
 
-    const ingredient = await prisma.ingredient.update({
+    // Update name on ShopIngredient (name lives there); create ShopIngredient if missing
+    const existingIngredient = await prisma.ingredient.findUnique({
       where: { id },
-      data: updateData,
+      select: { shopIngredientId: true },
+    });
+    if (existingIngredient?.shopIngredientId) {
+      const shopUpdate: { name: string; type?: IngredientType; storageType?: StorageType | null; categoryId?: string | null } = { name: name.trim() };
+      if (type !== undefined) shopUpdate.type = type;
+      if (storageType !== undefined) shopUpdate.storageType = storageType || null;
+      if (categoryId !== undefined) shopUpdate.categoryId = categoryId || null;
+      await prisma.shopIngredient.update({
+        where: { id: existingIngredient.shopIngredientId },
+        data: shopUpdate,
+      });
+    } else {
+      const shop = await prisma.shopIngredient.create({
+        data: {
+          name: name.trim(),
+          type: type ?? IngredientType.food,
+          storageType: storageType ?? null,
+          categoryId: categoryId ?? null,
+        },
+      });
+      (updateData as Record<string, unknown>).shopIngredientId = shop.id;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await prisma.ingredient.update({
+        where: { id },
+        data: updateData,
+      });
+    }
+    const ingredient = await prisma.ingredient.findUnique({
+      where: { id },
       include: {
-        category: true,
         tag: true,
         storeLinks: true,
+        shopIngredient: { include: { category: true } },
       },
     });
-
-    return { success: true, data: { id: ingredient.id, name: ingredient.name } };
+    if (!ingredient) return { success: false, error: "Ingredient not found" };
+    return { success: true, data: { id: ingredient.id, name: ingredient.shopIngredient?.name ?? name.trim() } };
   } catch (error) {
     console.error("Update ingredient error:", error);
     return { success: false, error: "Failed to update ingredient" };
@@ -240,33 +250,29 @@ export async function deleteIngredientAction(id: string): Promise<ActionResult> 
       return { success: false, error: "Ingredient not found" };
     }
 
+    const ingredientToDelete = await prisma.ingredient.findUnique({
+      where: { id },
+      select: { shopIngredientId: true },
+    });
+    const shopIngredientIdToDelete = ingredientToDelete?.shopIngredientId ?? null;
+
     // Delete all related records first (since there's no cascade delete on Ingredient)
-    // Use a transaction to ensure atomicity
     await prisma.$transaction(async (tx) => {
-      // Delete from recipe ingredients
-      await tx.recipeIngredient.deleteMany({
-        where: { ingredientId: id },
-      });
-
-      // Delete from stored ingredients
-      await tx.storedIngredient.deleteMany({
-        where: { ingredientId: id },
-      });
-
-      // Delete from shopping list ingredients
-      await tx.shoppingListIngredient.deleteMany({
-        where: { ingredientId: id },
-      });
-
-      // Delete store links
-      await tx.storeLink.deleteMany({
-        where: { ingredientId: id },
-      });
-
-      // Finally delete the ingredient
-      await tx.ingredient.delete({
-        where: { id },
-      });
+      await tx.recipeIngredient.deleteMany({ where: { ingredientId: id } });
+      await tx.storedIngredient.deleteMany({ where: { ingredientId: id } });
+      await tx.shoppingListIngredient.deleteMany({ where: { ingredientId: id } });
+      await tx.storeLink.deleteMany({ where: { ingredientId: id } });
+      // Unlink and delete the one-to-one ShopIngredient so we don't leave orphans
+      if (shopIngredientIdToDelete) {
+        await tx.ingredient.update({
+          where: { id },
+          data: { shopIngredientId: null },
+        });
+        await tx.shopIngredient.delete({
+          where: { id: shopIngredientIdToDelete },
+        });
+      }
+      await tx.ingredient.delete({ where: { id } });
     });
 
     return { success: true };
@@ -311,12 +317,12 @@ export async function getIngredientsAction() {
         userId: session.user.id as string,
       },
       include: {
-        category: true,
         tag: true,
         storeLinks: true,
+        shopIngredient: { include: { category: true } },
       },
       orderBy: {
-        name: "asc",
+        shopIngredient: { name: "asc" },
       },
     });
 
@@ -348,9 +354,9 @@ export async function getIngredientAction(id: string) {
         userId: session.user.id as string,
       },
       include: {
-        category: true,
         tag: true,
         storeLinks: true,
+        shopIngredient: { include: { category: true } },
       },
     });
 

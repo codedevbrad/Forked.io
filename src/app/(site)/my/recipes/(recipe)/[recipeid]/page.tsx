@@ -98,7 +98,7 @@ export default async function RecipePage({ params }: Props) {
                     <span className="text-foreground font-medium tabular-nums">
                       {ri.quantity} {ri.unit}
                     </span>
-                    <span>{ri.ingredient.name}</span>
+                    <span>{ri.ingredient.shopIngredient?.name ?? "Unnamed"}</span>
                   </li>
                 ))}
               </ul>

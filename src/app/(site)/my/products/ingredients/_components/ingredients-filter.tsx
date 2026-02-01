@@ -8,11 +8,11 @@ import { IngredientType, StorageType } from "@prisma/client";
 import { X, Search, Filter } from "lucide-react";
 import { useTags } from "@/src/domains/tags/_contexts/useTags";
 
+/** Type/storageType from linked ShopIngredient (one-to-one) */
 type Ingredient = {
   id: string;
   name: string;
-  type: string;
-  storageType: string | null;
+  shopIngredient?: { type: string; storageType: string | null } | null;
   tag: Array<{ id: string; name: string; color: string }>;
 };
 
@@ -35,21 +35,21 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(ingredient =>
-        ingredient.name.toLowerCase().includes(query)
+        (ingredient.shopIngredient?.name ?? "").toLowerCase().includes(query)
       );
     }
 
-    // Type filter
+    // Type filter (from ShopIngredient)
     if (selectedType !== "all") {
-      filtered = filtered.filter(ingredient => ingredient.type === selectedType);
+      filtered = filtered.filter(ingredient => ingredient.shopIngredient?.type === selectedType);
     }
 
-    // Storage type filter
+    // Storage type filter (from ShopIngredient)
     if (selectedStorageType !== "all") {
       if (selectedStorageType === "none") {
-        filtered = filtered.filter(ingredient => !ingredient.storageType);
+        filtered = filtered.filter(ingredient => !ingredient.shopIngredient?.storageType);
       } else {
-        filtered = filtered.filter(ingredient => ingredient.storageType === selectedStorageType);
+        filtered = filtered.filter(ingredient => ingredient.shopIngredient?.storageType === selectedStorageType);
       }
     }
 

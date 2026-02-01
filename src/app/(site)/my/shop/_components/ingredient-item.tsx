@@ -11,7 +11,7 @@ export function IngredientItem({ ingredient }: IngredientItemProps) {
   return (
     <li className="flex items-center gap-2 border rounded-md my-1 p-2 pl-4 shadow-md">
       <span className="text-sm text-gray-700">
-       {ingredient.quantity} {ingredient.unit} {ingredient.ingredient.name}
+       {ingredient.quantity} {ingredient.unit} {ingredient.ingredient.shopIngredient?.name ?? "Unnamed"}
       </span>
       {ingredient.recipe && (
         <span title={`From recipe: ${ingredient.recipe.name}`}>

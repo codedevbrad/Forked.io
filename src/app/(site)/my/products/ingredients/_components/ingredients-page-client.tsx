@@ -10,13 +10,16 @@ import { Button } from "@/src/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IngredientType, StorageType } from "@prisma/client";
 
+/** Type/category from linked ShopIngredient (one-to-one) */
 type Ingredient = {
   id: string;
   name: string;
-  type: IngredientType;
-  storageType: StorageType | null;
+  shopIngredient?: {
+    type: IngredientType;
+    storageType: StorageType | null;
+    category: { id: string; name: string; color: string; icon?: string | null } | null;
+  } | null;
   tag: Array<{ id: string; name: string; color: string }>;
-  category: { id: string; name: string; color: string; icon?: string | null } | null;
   storeLinks?: Array<{ id: string; url: string }>;
 };
 

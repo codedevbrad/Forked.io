@@ -180,10 +180,7 @@ export function IngredientForm({
             storeLinks.length > 0 ? storeLinks : undefined
           )
         : await createIngredientAction(
-            name, 
-            type, 
-            storageType || undefined, 
-            selectedCategoryId || undefined,
+            name,
             selectedTagIds.length > 0 ? selectedTagIds : undefined,
             storeLinks.length > 0 ? storeLinks : undefined
           );
@@ -259,56 +256,61 @@ export function IngredientForm({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label htmlFor="type" className="text-sm font-medium">
-          Type <span className="text-destructive">*</span>
-        </label>
-        <Select
-          value={type}
-          onValueChange={(value) => setType(value as IngredientType)}
-          disabled={isPending}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={IngredientType.food}>Food</SelectItem>
-            <SelectItem value={IngredientType.drink}>Drink</SelectItem>
-            <SelectItem value={IngredientType.condiment}>Condiment</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Type, storage, category only when editing (from ShopIngredient); user no longer fills when adding */}
+      {isEditing && (
+        <>
+          <div className="space-y-2">
+            <label htmlFor="type" className="text-sm font-medium">
+              Type <span className="text-destructive">*</span>
+            </label>
+            <Select
+              value={type}
+              onValueChange={(value) => setType(value as IngredientType)}
+              disabled={isPending}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={IngredientType.food}>Food</SelectItem>
+                <SelectItem value={IngredientType.drink}>Drink</SelectItem>
+                <SelectItem value={IngredientType.condiment}>Condiment</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="space-y-2">
-        <label htmlFor="storageType" className="text-sm font-medium">
-          Storage Type
-        </label>
-        <Select
-          key={`storage-${ingredientId || 'new'}`}
-          value={storageTypeValue}
-          onValueChange={(value) => {
-            const newValue = value === "__none__" ? null : (value as StorageType);
-            setStorageType(newValue);
-          }}
-          disabled={isPending}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select storage type (optional)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">None</SelectItem>
-            <SelectItem value={StorageType.pantry}>Pantry</SelectItem>
-            <SelectItem value={StorageType.fridge}>Fridge</SelectItem>
-            <SelectItem value={StorageType.freezer}>Freezer</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          <div className="space-y-2">
+            <label htmlFor="storageType" className="text-sm font-medium">
+              Storage Type
+            </label>
+            <Select
+              key={`storage-${ingredientId || "edit"}`}
+              value={storageTypeValue}
+              onValueChange={(value) => {
+                const newValue = value === "__none__" ? null : (value as StorageType);
+                setStorageType(newValue);
+              }}
+              disabled={isPending}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select storage type (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
+                <SelectItem value={StorageType.pantry}>Pantry</SelectItem>
+                <SelectItem value={StorageType.fridge}>Fridge</SelectItem>
+                <SelectItem value={StorageType.freezer}>Freezer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      <CategorySelector
-        selectedCategoryId={selectedCategoryId}
-        onSelectionChange={setSelectedCategoryId}
-        disabled={isPending}
-      />
+          <CategorySelector
+            selectedCategoryId={selectedCategoryId}
+            onSelectionChange={setSelectedCategoryId}
+            disabled={isPending}
+          />
+        </>
+      )}
 
       <TagSelector
         selectedTagIds={selectedTagIds}

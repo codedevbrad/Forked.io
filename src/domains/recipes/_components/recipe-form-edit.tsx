@@ -269,7 +269,7 @@ export function RecipeFormEdit({
                   <SelectContent>
                     {ingredients?.map((ingredient) => (
                       <SelectItem key={ingredient.id} value={ingredient.id}>
-                        {ingredient.name}
+                        {ingredient.shopIngredient?.name ?? "Unnamed"}
                       </SelectItem>
                     ))}
                   </SelectContent>

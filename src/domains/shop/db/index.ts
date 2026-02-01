@@ -363,7 +363,7 @@ export async function getShoppingListsAction() {
       include: {
         ingredients: {
           include: {
-            ingredient: true,
+            ingredient: { include: { shopIngredient: true } },
             recipe: {
               select: {
                 id: true,
@@ -411,7 +411,7 @@ export async function getShoppingListAction(id: string) {
       include: {
         ingredients: {
           include: {
-            ingredient: true,
+            ingredient: { include: { shopIngredient: true } },
             recipe: {
               select: {
                 id: true,

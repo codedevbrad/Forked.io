@@ -44,7 +44,7 @@ export function RecipeIngredientsPopover({ ingredients }: RecipeIngredientsPopov
           <ul className="text-sm text-muted-foreground space-y-1">
             {ingredients.map((ri) => (
               <li key={ri.id}>
-                • {ri.quantity} {ri.unit} {ri.ingredient.name}
+                • {ri.quantity} {ri.unit} {ri.ingredient.shopIngredient?.name ?? "Unnamed"}
               </li>
             ))}
           </ul>

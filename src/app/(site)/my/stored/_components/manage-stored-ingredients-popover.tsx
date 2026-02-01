@@ -156,7 +156,7 @@ export function ManageStoredIngredientsPopover({
                     className="flex items-center justify-between p-2 border rounded text-sm"
                   >
                     <div className="flex-1">
-                      <div className="font-medium">{si.ingredient.name}</div>
+                      <div className="font-medium">{si.ingredient.shopIngredient?.name ?? "Unnamed"}</div>
                       <div className="text-xs text-muted-foreground">
                         {si.quantity} {getUnitLabel(si.unit)}
                         {si.expiresAt && (
@@ -202,7 +202,7 @@ export function ManageStoredIngredientsPopover({
                     <SelectContent>
                       {availableIngredients.map((ingredient) => (
                         <SelectItem key={ingredient.id} value={ingredient.id}>
-                          {ingredient.name}
+                          {ingredient.shopIngredient?.name ?? "Unnamed"}
                         </SelectItem>
                       ))}
                     </SelectContent>

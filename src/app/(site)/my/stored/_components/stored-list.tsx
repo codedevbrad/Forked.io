@@ -159,7 +159,7 @@ export function StoredList() {
                   <ul className="text-sm text-muted-foreground space-y-1 ml-4">
                     {location.ingredients.slice(0, 3).map((si) => (
                       <li key={si.id}>
-                        • {si.quantity} {si.unit} {si.ingredient.name}
+                        • {si.quantity} {si.unit} {si.ingredient.shopIngredient?.name ?? "Unnamed"}
                         {si.expiresAt && (
                           <span className="text-xs ml-2">
                             (expires: {new Date(si.expiresAt).toLocaleDateString()})

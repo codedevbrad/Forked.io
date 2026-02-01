@@ -8,13 +8,16 @@ import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
 import { Package, ShoppingCart, ChefHat } from "lucide-react";
 import { IngredientType, StorageType } from "@prisma/client";
 
+/** Type/category from linked ShopIngredient (one-to-one) */
 type Ingredient = {
   id: string;
   name: string;
-  type: IngredientType;
-  storageType: StorageType | null;
+  shopIngredient?: {
+    type: IngredientType;
+    storageType: StorageType | null;
+    category: { id: string; name: string; color: string; icon?: string | null } | null;
+  } | null;
   tag: Array<{ id: string; name: string; color: string }>;
-  category: { id: string; name: string; color: string; icon?: string | null } | null;
   storeLinks?: Array<{ id: string; url: string }>;
 };
 

@@ -95,6 +95,7 @@ Return a JSON object with this structure:
   "ingredients": [
     {
       "name": "ingredient name",
+      
       "quantity": 100,
       "unit": "g"
     }

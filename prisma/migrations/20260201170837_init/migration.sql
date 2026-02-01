@@ -88,6 +88,19 @@ CREATE TABLE "ShopProduct" (
 );
 
 -- CreateTable
+CREATE TABLE "ShopIngredient" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "type" "IngredientType" NOT NULL,
+    "storageType" "StorageType",
+    "categoryId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ShopIngredient_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Recipe" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -189,10 +202,7 @@ CREATE TABLE "User" (
 CREATE TABLE "Ingredient" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "type" "IngredientType" NOT NULL,
-    "storageType" "StorageType",
-    "categoryId" TEXT,
+    "shopIngredientId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -234,7 +244,10 @@ CREATE UNIQUE INDEX "StoredIngredient_storedId_ingredientId_key" ON "StoredIngre
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Ingredient_userId_name_key" ON "Ingredient"("userId", "name");
+CREATE UNIQUE INDEX "Ingredient_shopIngredientId_key" ON "Ingredient"("shopIngredientId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Ingredient_userId_key" ON "Ingredient"("userId");
 
 -- CreateIndex
 CREATE INDEX "_RecipeToTag_B_index" ON "_RecipeToTag"("B");
@@ -247,6 +260,9 @@ ALTER TABLE "Tag" ADD CONSTRAINT "Tag_userId_fkey" FOREIGN KEY ("userId") REFERE
 
 -- AddForeignKey
 ALTER TABLE "StoreLink" ADD CONSTRAINT "StoreLink_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "Ingredient"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShopIngredient" ADD CONSTRAINT "ShopIngredient_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Recipe" ADD CONSTRAINT "Recipe_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -288,7 +304,7 @@ ALTER TABLE "StoredIngredient" ADD CONSTRAINT "StoredIngredient_ingredientId_fke
 ALTER TABLE "Ingredient" ADD CONSTRAINT "Ingredient_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Ingredient" ADD CONSTRAINT "Ingredient_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Ingredient" ADD CONSTRAINT "Ingredient_shopIngredientId_fkey" FOREIGN KEY ("shopIngredientId") REFERENCES "ShopIngredient"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_RecipeToTag" ADD CONSTRAINT "_RecipeToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;

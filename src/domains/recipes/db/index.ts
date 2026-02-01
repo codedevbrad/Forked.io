@@ -239,7 +239,7 @@ export async function getRecipesAction() {
       include: {
         ingredients: {
           include: {
-            ingredient: true,
+            ingredient: { include: { shopIngredient: true } },
           },
         },
         tags: true,
@@ -272,7 +272,7 @@ export async function getRecipeAction(id: string) {
       include: {
         ingredients: {
           include: {
-            ingredient: true,
+            ingredient: { include: { shopIngredient: true } },
           },
         },
         tags: true,
@@ -423,23 +423,28 @@ export async function savePreviewedRecipeAction(
     const userId = session.user.id as string;
 
     for (const extractedIng of ingredients) {
-      // Try to find existing ingredient
-      let ingredient = await prisma.ingredient.findUnique({
+      // Try to find existing ingredient by user + ShopIngredient name (name lives on ShopIngredient)
+      let ingredient = await prisma.ingredient.findFirst({
         where: {
-          userId_name: {
-            userId,
-            name: extractedIng.name,
-          },
+          userId,
+          shopIngredient: { name: extractedIng.name },
         },
       });
 
-      // If not found, create it (default to "food" type)
+      // If not found, create ShopIngredient then Ingredient (one-to-one; name on ShopIngredient)
       if (!ingredient) {
-        ingredient = await prisma.ingredient.create({
+        const shop = await prisma.shopIngredient.create({
           data: {
             name: extractedIng.name,
             type: IngredientType.food,
+            storageType: null,
+            categoryId: null,
+          },
+        });
+        ingredient = await prisma.ingredient.create({
+          data: {
             userId,
+            shopIngredientId: shop.id,
           },
         });
       }
@@ -533,23 +538,28 @@ export async function importRecipeFromUrlAction(
     const userId = session.user.id as string;
 
     for (const extractedIng of extractedData.ingredients) {
-      // Try to find existing ingredient
-      let ingredient = await prisma.ingredient.findUnique({
+      // Try to find existing ingredient by user + ShopIngredient name
+      let ingredient = await prisma.ingredient.findFirst({
         where: {
-          userId_name: {
-            userId,
-            name: extractedIng.name,
-          },
+          userId,
+          shopIngredient: { name: extractedIng.name },
         },
       });
 
-      // If not found, create it (default to "food" type)
+      // If not found, create ShopIngredient then Ingredient (one-to-one)
       if (!ingredient) {
-        ingredient = await prisma.ingredient.create({
+        const shop = await prisma.shopIngredient.create({
           data: {
             name: extractedIng.name,
             type: IngredientType.food,
+            storageType: null,
+            categoryId: null,
+          },
+        });
+        ingredient = await prisma.ingredient.create({
+          data: {
             userId,
+            shopIngredientId: shop.id,
           },
         });
       }

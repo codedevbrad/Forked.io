@@ -387,16 +387,17 @@ function StorageAggregationCards({
 
   storedIngredients.forEach((storedIngredient) => {
     const ingredient = storedIngredient.ingredient;
+    const shop = ingredient.shopIngredient;
 
-    // Count ingredient types
-    if (ingredient.type) {
-      ingredientTypeCounts[ingredient.type] = (ingredientTypeCounts[ingredient.type] || 0) + 1;
+    // Count ingredient types (from ShopIngredient)
+    if (shop?.type) {
+      ingredientTypeCounts[shop.type] = (ingredientTypeCounts[shop.type] || 0) + 1;
     }
 
-    // Count storage types
-    if (ingredient.storageType) {
-      storageTypeCounts[ingredient.storageType] =
-        (storageTypeCounts[ingredient.storageType] || 0) + 1;
+    // Count storage types (from ShopIngredient)
+    if (shop?.storageType) {
+      storageTypeCounts[shop.storageType] =
+        (storageTypeCounts[shop.storageType] || 0) + 1;
     }
 
     // Count tags
@@ -411,9 +412,9 @@ function StorageAggregationCards({
       tagCounts[tag.id].count += 1;
     });
 
-    // Count categories
-    if (ingredient.category) {
-      const category = ingredient.category;
+    // Count categories (from ShopIngredient)
+    if (shop?.category) {
+      const category = shop.category;
       if (!categoryCounts[category.id]) {
         categoryCounts[category.id] = {
           name: category.name,

@@ -21,12 +21,14 @@ model ShopProduct {
 
 model ShopIngredient {
   id String @id @default(cuid())
-  name String
+  name String // display name (Ingredient has no name; use this via relation)
   type IngredientType
   storageType StorageType?
   category Category? @relation(fields: [categoryId], references: [id])
-  categoryId String?
-  usedBy Ingredient[]
+  categoryId String? 
+
+  ingredient Ingredient?  // back-relation (optional because FK is on Ingredient)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

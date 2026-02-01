@@ -16,13 +16,16 @@ type Category = {
   icon?: string | null;
 };
 
+/** Type/category come from linked ShopIngredient (one-to-one) */
 type IngredientData = {
   id: string;
   name: string;
-  type: IngredientType;
-  storageType: StorageType | null;
+  shopIngredient?: {
+    type: IngredientType;
+    storageType: StorageType | null;
+    category: Category | null;
+  } | null;
   tag: Tag[];
-  category: Category | null;
 };
 
 type IngredientTitleWithPillsProps = {
@@ -34,47 +37,53 @@ type IngredientTitleWithPillsProps = {
 export function IngredientInputDisplay({ ingredient, className }: IngredientTitleWithPillsProps) {
   return (
     <div className={cn("space-y-2", className)}>
-      <h3 className="font-medium text-base">{ingredient.name}</h3>
+      <h3 className="font-medium text-base">{ingredient.shopIngredient?.name ?? "Unnamed"}</h3>
     </div>
   );
 } 
+
+function getShop(ingredient: IngredientData) {
+  return ingredient.shopIngredient ?? undefined;
+}
 
 export function IngredientTitleWithPills({
   ingredient,
   className,
 }: IngredientTitleWithPillsProps) {
+  const shop = getShop(ingredient);
   return (
     <div className={cn("space-y-2", className)}>
-      <h3 className="font-medium text-base">{ingredient.name}</h3>
+      <h3 className="font-medium text-base">{ingredient.shopIngredient?.name ?? "Unnamed"}</h3>
       <div className="flex flex-wrap gap-1.5">
-        {/* Type Pill */}
-        <span
-          className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20"
-        >
-          {ingredient.type}
-        </span>
-
-        {/* Storage Type Pill */}
-        {ingredient.storageType && (
+        {/* Type Pill (from ShopIngredient) */}
+        {shop?.type && (
           <span
-            className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
+            className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20"
           >
-            {ingredient.storageType}
+            {shop.type}
           </span>
         )}
 
-        {/* Category Pill */}
-        {ingredient.category && (
+        {/* Storage Type Pill (from ShopIngredient) */}
+        {shop?.storageType && (
+          <span
+            className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
+          >
+            {shop.storageType}
+          </span>
+        )}
+
+        {/* Category Pill (from ShopIngredient) */}
+        {shop?.category && (
           <span
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium"
             style={{
-              backgroundColor: `${ingredient.category.color}20`,
-              color: ingredient.category.color,
-              border: `1px solid ${ingredient.category.color}40`,
+              backgroundColor: `${shop.category.color}20`,
+              color: shop.category.color,
+              border: `1px solid ${shop.category.color}40`,
             }}
           >
-            
-            {ingredient.category.name}
+            {shop.category.name}
           </span>
         )}
 
@@ -128,7 +137,8 @@ export function IngredientCard({
     );
   }
 
-  const hasFullData = ingredient.type && ingredient.storageType !== undefined;
+  const shop = getShop(ingredient as IngredientData);
+  const hasFullData = Boolean(shop?.type);
 
   return (
     <div className={cn("p-3 border rounded-lg space-y-2", className)}>
@@ -136,7 +146,7 @@ export function IngredientCard({
         <IngredientTitleWithPills ingredient={ingredient as IngredientData} />
       ) : (
         <div className="space-y-2">
-          <h3 className="font-medium text-base">{ingredient.name}</h3>
+          <h3 className="font-medium text-base">{ingredient.shopIngredient?.name ?? "Unnamed"}</h3>
         </div>
       )}
       {children && <div className="mt-2">{children}</div>}

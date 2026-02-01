@@ -17,8 +17,7 @@ model Ingredient {
   id String @id @default(cuid())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
-
-  name String
+ 
   tag Tag[]
   storeLinks StoreLink[]
 
@@ -26,10 +25,9 @@ model Ingredient {
   storedIngredients StoredIngredient[]
   shoppingListIngredients ShoppingListIngredient[]
 
-  ingredients ShopIngredient[]
+  shopIngredient   ShopIngredient? @relation(fields: [shopIngredientId], references: [id])
+  shopIngredientId String?        @unique  // optional = ingredient can exist without a ShopIngredient; name lives on ShopIngredient
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([userId, name])
 }
