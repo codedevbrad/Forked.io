@@ -11,9 +11,12 @@ export default function SystemLayout({ children }: { children: React.ReactNode }
                     <li>
                          <Link href="/system/products">Products</Link>
                     </li>
+                    <li>
+                        <Link href="/system/ingredients">Ingredients</Link>
+                    </li>
                 </ul>
             </div>
-            <div>
+            <div className="flex-1">
                 {children}
             </div>
             

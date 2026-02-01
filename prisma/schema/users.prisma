@@ -31,3 +31,12 @@ model Ingredient {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// model CustomIngredient {
+//   id String @id @default(cuid())
+//   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   userId String
+//   name String
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }

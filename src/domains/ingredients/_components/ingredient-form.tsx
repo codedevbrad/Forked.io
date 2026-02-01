@@ -1,53 +1,29 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo, useRef } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
-import { createIngredientAction, updateIngredientAction } from "@/src/domains/ingredients/db";
+import { createIngredientAction } from "@/src/domains/ingredients/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { TagSelector } from "./tag-selector";
-import { CategorySelector } from "@/src/domains/categories/_components/category-selector";
-import { IngredientType, StorageType } from "@prisma/client";
 import { Plus, X, ExternalLink } from "lucide-react";
 import { tescoAutoComplete } from "@/src/services/food/store/tesco";
 import { cn } from "@/src/lib/utils";
 
 type IngredientFormProps = {
-  ingredientId?: string;
-  initialName?: string;
-  initialType?: IngredientType;
-  initialStorageType?: StorageType | null;
-  initialCategoryId?: string | null;
-  initialTagIds?: string[];
-  initialStoreLinks?: string[];
   onSuccess?: () => void;
   onCancel?: () => void;
 };
 
-export function IngredientForm({ 
-  ingredientId, 
-  initialName = "", 
-  initialType = IngredientType.food,
-  initialStorageType = null,
-  initialCategoryId = null,
-  initialTagIds = [],
-  initialStoreLinks = [],
-  onSuccess,
-  onCancel 
-}: IngredientFormProps) {
+export function IngredientForm({ onSuccess, onCancel }: IngredientFormProps) {
   const { mutate } = useIngredients();
-  const [name, setName] = useState(initialName);
-  const [type, setType] = useState<IngredientType>(initialType);
-  const [storageType, setStorageType] = useState<StorageType | null>(initialStorageType);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(initialCategoryId);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialTagIds);
-  const [storeLinks, setStoreLinks] = useState<string[]>(initialStoreLinks);
+  const [name, setName] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [storeLinks, setStoreLinks] = useState<string[]>([]);
   const [newStoreLink, setNewStoreLink] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const isEditing = !!ingredientId;
-  
+
   // Auto-suggestions state
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -55,37 +31,6 @@ export function IngredientForm({
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-
-  // Convert storageType to string for Select component - memoized to prevent re-renders
-  const storageTypeValue = useMemo(() => storageType ?? "__none__", [storageType]);
-
-  // Track the last ingredientId we initialized for to prevent re-initialization loops
-  const lastInitializedId = useRef<string | undefined>(undefined);
-
-  // Only update when ingredientId changes (switching between edit/create mode)
-  useEffect(() => {
-    if (ingredientId !== lastInitializedId.current) {
-      lastInitializedId.current = ingredientId;
-      if (ingredientId) {
-        // We're editing - sync with initial values
-        setName(initialName);
-        setType(initialType);
-        setStorageType(initialStorageType ?? null);
-        setSelectedCategoryId(initialCategoryId ?? null);
-        setSelectedTagIds(initialTagIds);
-        setStoreLinks(initialStoreLinks);
-      } else {
-        // We're creating - reset to defaults
-        setName("");
-        setType(IngredientType.food);
-        setStorageType(null);
-        setSelectedCategoryId(null);
-        setSelectedTagIds([]);
-        setStoreLinks([]);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ingredientId]);
 
   // Debounced search for suggestions
   useEffect(() => {
@@ -169,29 +114,16 @@ export function IngredientForm({
     }
 
     startTransition(async () => {
-      const result = isEditing
-        ? await updateIngredientAction(
-            ingredientId, 
-            name, 
-            type, 
-            storageType, 
-            selectedCategoryId || undefined,
-            selectedTagIds.length > 0 ? selectedTagIds : undefined,
-            storeLinks.length > 0 ? storeLinks : undefined
-          )
-        : await createIngredientAction(
-            name,
-            selectedTagIds.length > 0 ? selectedTagIds : undefined,
-            storeLinks.length > 0 ? storeLinks : undefined
-          );
+      const result = await createIngredientAction(
+        name,
+        selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        storeLinks.length > 0 ? storeLinks : undefined
+      );
 
       if (!result.success) {
         setError(result.error);
       } else {
         setName("");
-        setType(IngredientType.food);
-        setStorageType(null);
-        setSelectedCategoryId(null);
         setSelectedTagIds([]);
         setStoreLinks([]);
         setNewStoreLink("");
@@ -205,7 +137,7 @@ export function IngredientForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2 relative">
         <label htmlFor="name" className="text-sm font-medium">
-          Ingredient Name
+          Ingredient Name sds
         </label>
         <div className="relative">
           <Input
@@ -255,62 +187,6 @@ export function IngredientForm({
           )}
         </div>
       </div>
-
-      {/* Type, storage, category only when editing (from ShopIngredient); user no longer fills when adding */}
-      {isEditing && (
-        <>
-          <div className="space-y-2">
-            <label htmlFor="type" className="text-sm font-medium">
-              Type <span className="text-destructive">*</span>
-            </label>
-            <Select
-              value={type}
-              onValueChange={(value) => setType(value as IngredientType)}
-              disabled={isPending}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={IngredientType.food}>Food</SelectItem>
-                <SelectItem value={IngredientType.drink}>Drink</SelectItem>
-                <SelectItem value={IngredientType.condiment}>Condiment</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="storageType" className="text-sm font-medium">
-              Storage Type
-            </label>
-            <Select
-              key={`storage-${ingredientId || "edit"}`}
-              value={storageTypeValue}
-              onValueChange={(value) => {
-                const newValue = value === "__none__" ? null : (value as StorageType);
-                setStorageType(newValue);
-              }}
-              disabled={isPending}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select storage type (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                <SelectItem value={StorageType.pantry}>Pantry</SelectItem>
-                <SelectItem value={StorageType.fridge}>Fridge</SelectItem>
-                <SelectItem value={StorageType.freezer}>Freezer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <CategorySelector
-            selectedCategoryId={selectedCategoryId}
-            onSelectionChange={setSelectedCategoryId}
-            disabled={isPending}
-          />
-        </>
-      )}
 
       <TagSelector
         selectedTagIds={selectedTagIds}
@@ -401,10 +277,7 @@ export function IngredientForm({
       )}
       <div className="flex gap-2">
         <Button type="submit" disabled={isPending} className="flex-1">
-          {isPending 
-            ? (isEditing ? "Updating..." : "Creating...") 
-            : (isEditing ? "Update Ingredient" : "Create Ingredient")
-          }
+          {isPending ? "Creating..." : "Create Ingredient"}
         </Button>
         {onCancel && (
           <Button 

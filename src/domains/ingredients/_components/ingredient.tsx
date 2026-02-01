@@ -111,9 +111,7 @@ export function IngredientTitleWithPills({
 }
 
 type IngredientCardProps = {
-  ingredient: Partial<IngredientData> & { id: string; name: string };
-  isEditing?: boolean;
-  editComponent?: React.ReactNode;
+  ingredient: Partial<IngredientData> & { id: string; name?: string };
   className?: string;
   children?: React.ReactNode;
   actions?: React.ReactNode;
@@ -122,21 +120,11 @@ type IngredientCardProps = {
 
 export function IngredientCard({
   ingredient,
-  isEditing = false,
-  editComponent,
   className,
   children,
   actions,
   showPills = true,
 }: IngredientCardProps) {
-  if (isEditing && editComponent) {
-    return (
-      <div className={cn("p-4 border rounded-lg space-y-2", className)}>
-        {editComponent}
-      </div>
-    );
-  }
-
   const shop = getShop(ingredient as IngredientData);
   const hasFullData = Boolean(shop?.type);
 
