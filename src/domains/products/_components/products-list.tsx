@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { ProductModal } from "@/src/domains/products/_components/product-modal";
+import { FindProductsModal } from "@/src/domains/products/_components/find-products-modal";
 import { deleteProductAction } from "@/src/domains/products/db";
 import { useProducts } from "@/src/domains/products/_contexts/useProducts";
 import { Retailer, Unit } from "@prisma/client";
@@ -28,7 +29,12 @@ const RETAILER_LABELS: Record<Retailer, string> = {
   ASDA: "Asda",
 };
 
-export function ProductsList() {
+type ProductsListProps = {
+  /** When false, hide the Find products / Add product bar (e.g. when page has its own header actions). Default true. */
+  showHeaderActions?: boolean;
+};
+
+export function ProductsList({ showHeaderActions = true }: ProductsListProps) {
   const { data: products, isLoading, error, mutate } = useProducts();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -67,9 +73,12 @@ export function ProductsList() {
   if (!products || products.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <ProductModal mode="create" />
-        </div>
+        {showHeaderActions && (
+          <div className="flex justify-end gap-2">
+            <FindProductsModal />
+            <ProductModal mode="create" />
+          </div>
+        )}
         <p className="text-muted-foreground">
           No products yet. Add a product to get started.
         </p>
@@ -89,9 +98,12 @@ export function ProductsList() {
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />
-      <div className="mb-4 flex justify-end">
-        <ProductModal mode="create" />
-      </div>
+      {showHeaderActions && (
+        <div className="mb-4 flex justify-end gap-2">
+          <FindProductsModal />
+          <ProductModal mode="create" />
+        </div>
+      )}
       <div className="space-y-2">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(products as ShopProduct[]).map((product) => (

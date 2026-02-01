@@ -11,5 +11,25 @@ model User {
   stored Stored[]
   shoppingLists ShoppingList[]
   tags Tag[]
-  shopProducts ShopProduct[]
+}
+
+model Ingredient {
+  id String @id @default(cuid())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  name String
+  tag Tag[]
+  storeLinks StoreLink[]
+
+  recipeIngredients RecipeIngredient[]
+  storedIngredients StoredIngredient[]
+  shoppingListIngredients ShoppingListIngredient[]
+
+  ingredients ShopIngredient[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
 }

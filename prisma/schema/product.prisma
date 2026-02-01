@@ -4,6 +4,7 @@ enum Retailer {
   SAINSBURYS
   ASDA
 }
+ 
 
 model ShopProduct {
   id            String     @id @default(cuid())
@@ -14,8 +15,18 @@ model ShopProduct {
   size          Int?  // optional, in grams/ml/etc
   unit          Unit?
   imageUrl      String?
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+}
+
+model ShopIngredient {
+  id String @id @default(cuid())
+  name String
+  type IngredientType
+  storageType StorageType?
+  category Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+  usedBy Ingredient[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

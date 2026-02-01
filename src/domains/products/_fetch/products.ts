@@ -1,3 +1,5 @@
+"use server";
+
 import * as cheerio from "cheerio";
 import { Retailer, Unit } from "@prisma/client";
 
@@ -67,11 +69,11 @@ function getSearchUrl(retailer: Retailer, searchTerm: string): string {
   const encoded = encodeURIComponent(searchTerm.trim());
   switch (retailer) {
     case "TESCO":
-      return `https://www.tesco.com/groceries/en-GB/search?query=${encoded}`;
+      return `https://www.tesco.com/groceries/en-GB/search?query=${encoded}&sortBy=relevance`;
     case "MORRISONS":
       return `https://groceries.morrisons.com/search?query=${encoded}`;
     case "SAINSBURYS":
-      return `https://www.sainsburys.co.uk/gol-ui/Search?searchTerm=${encoded}`;
+      return `https://www.sainsburys.co.uk/gol-ui/SearchDisplayView?searchTerm=${encoded}`;
     case "ASDA":
       return `https://groceries.asda.com/search/${encoded}`;
     default:
@@ -194,8 +196,12 @@ function parseTesco(html: string, baseUrl: string): ScrapedProduct[] {
 
     const { size, unit } = parseSizeAndUnit(productName + " " + priceText);
 
-    const $img = $el.find("img").first();
-    const imgSrc = $img.attr("src") || $img.attr("data-src");
+    // Tesco product images: img.gyT8MW_baseImage, data-testid="imageElement_*", src="https://digitalcontent.api.tesco.com/..."
+    let $img = $el.find('img[data-testid^="imageElement_"]').first();
+    if (!$img.length) $img = $el.find('img[class*="gyT8MW"], img[class*="baseImage"]').first();
+    if (!$img.length) $img = $el.find('img[src*="digitalcontent.api.tesco.com"]').first();
+    if (!$img.length) $img = $el.find("img").first();
+    const imgSrc = $img.attr("src") ?? $img.attr("data-src");
     const imageUrl = imgSrc ? resolveUrl(imgSrc, baseOrigin) : null;
 
     results.push({
@@ -402,7 +408,6 @@ export async function scrapeProducts(
   const url = getSearchUrl(retailer, searchTerm);
   const baseUrl = getBaseUrl(retailer);
 
-  // Human-like: random delay before request (1.5–4s)
   await humanDelay(1500, 4000);
 
   const response = await fetch(url, {
@@ -411,17 +416,16 @@ export async function scrapeProducts(
   });
 
   if (!response.ok) {
-    throw new Error(`Scrape failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Scrape failed (${retailer}): ${response.status} ${response.statusText}. URL: ${url}`
+    );
   }
 
   const html = await response.text();
-
-  // Small variable delay before parsing (simulate "reading" the page)
   await humanDelay(50, 200);
 
   const products = parseByRetailer(retailer, html, baseUrl);
 
-  // Cap results to avoid huge arrays; still looks natural
   const maxResults = randomBetween(24, 48);
   return products.slice(0, maxResults);
 }

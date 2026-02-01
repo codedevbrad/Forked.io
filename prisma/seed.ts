@@ -16,6 +16,11 @@ async function main() {
 
   const categories = [
     {
+      name: "Seasonings",
+      color: "#059669", // Emerald
+      icon: "seasonings",
+    }
+    {
       name: "Meat",
       color: "#dc2626", // Red
       icon: "meat",

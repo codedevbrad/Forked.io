@@ -3,6 +3,8 @@
 import { prisma } from "@/src/lib/db";
 import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
+import { scrapeProducts } from "@/src/domains/products/_fetch/products";
+import type { ScrapedProduct } from "@/src/domains/products/_fetch/products";
 import { Retailer, Unit } from "@prisma/client";
 
 export async function getProductsAction() {
@@ -179,6 +181,33 @@ export async function deleteProductAction(id: string): Promise<ActionResult> {
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to delete product",
+    };
+  }
+}
+
+export async function findProductsAction(
+  retailer: Retailer,
+  searchTerm: string
+): Promise<ActionResult<ScrapedProduct[]>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const term = searchTerm?.trim();
+    if (!term) {
+      return { success: false, error: "Search term is required" };
+    }
+
+    const products = await scrapeProducts(retailer, term);
+    return { success: true, data: products };
+  } catch (error) {
+    console.error("Find products error:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to find products",
     };
   }
 }

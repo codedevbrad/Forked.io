@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react"; 
-import { IngredientsList } from "../../../../../domains/ingredients/_components/ingredients-list";
+import { IngredientsList } from "../../../../../../domains/ingredients/_components/ingredients-list";
 import { CreateIngredientPopover } from "./create-ingredient-popover";
 import { IngredientsFilter } from "./ingredients-filter";
 import { IngredientsStatusFilter } from "./ingredients-status-filter";
@@ -22,7 +22,12 @@ type Ingredient = {
 
 const ITEMS_PER_PAGE = 10;
 
-export function IngredientsPageClient() {
+type IngredientsPageClientProps = {
+  /** When "section", only renders filters + list (no page title or create button). Use when embedding in a page that shows both products and ingredients. */
+  variant?: "full" | "section";
+};
+
+export function IngredientsPageClient({ variant = "full" }: IngredientsPageClientProps) {
   const { data: ingredients = [], isLoading } = useIngredients();
   const [filteredByMainFilter, setFilteredByMainFilter] = useState<Ingredient[]>(ingredients);
   const [filteredIngredients, setFilteredIngredients] = useState<Ingredient[]>(ingredients);
@@ -45,21 +50,9 @@ export function IngredientsPageClient() {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedIngredients = filteredIngredients.slice(startIndex, endIndex);
 
-  return (
-    <div className="container mx-auto max-w-6xl py-8 px-4">
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">My Products </h1>
-            <p className="text-muted-foreground">
-              Manage your products and ingredients. 
-              Create, edit, and delete ingredients to use in recipes and storage.
-            </p>
-          </div>
-          <CreateIngredientPopover />
-        </div>
-
-        {!isLoading && (
+  const content = (
+    <>
+      {!isLoading && (
           <>
             {/* Filter Section */}
             <IngredientsFilter
@@ -115,6 +108,27 @@ export function IngredientsPageClient() {
             </div>
           )}
         </div>
+    </>
+  );
+
+  if (variant === "section") {
+    return content;
+  }
+
+  return (
+    <div className="container mx-auto max-w-6xl py-8 px-4">
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">My Products </h1>
+            <p className="text-muted-foreground">
+              Manage your products and ingredients. 
+              Create, edit, and delete ingredients to use in recipes and storage.
+            </p>
+          </div>
+          <CreateIngredientPopover />
+        </div>
+        {content}
       </div>
     </div>
   );
