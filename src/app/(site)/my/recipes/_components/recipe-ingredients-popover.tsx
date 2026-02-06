@@ -2,6 +2,7 @@
 
 import { Button } from "@/src/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/src/components/ui/popover";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { List } from "lucide-react";
 import { Unit } from "@prisma/client";
 
@@ -44,7 +45,7 @@ export function RecipeIngredientsPopover({ ingredients }: RecipeIngredientsPopov
           <ul className="text-sm text-muted-foreground space-y-1">
             {ingredients.map((ri) => (
               <li key={ri.id}>
-                • {ri.quantity} {ri.unit} {ri.ingredient.shopIngredient?.name ?? "Unnamed"}
+                • {ri.quantity} {ri.unit} {getIngredientDisplayName(ri.ingredient)}
               </li>
             ))}
           </ul>

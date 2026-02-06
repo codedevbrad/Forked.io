@@ -13,6 +13,7 @@ model User {
   tags Tag[]
 }
 
+
 model Ingredient {
   id String @id @default(cuid())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -26,17 +27,10 @@ model Ingredient {
   shoppingListIngredients ShoppingListIngredient[]
 
   shopIngredient   ShopIngredient? @relation(fields: [shopIngredientId], references: [id])
-  shopIngredientId String?        @unique  // optional = ingredient can exist without a ShopIngredient; name lives on ShopIngredient
+  shopIngredientId String?        @unique  // optional = ingredient can exist without a ShopIngredient;
+
+  customIngredient Json
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-// model CustomIngredient {
-//   id String @id @default(cuid())
-//   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-//   userId String
-//   name String
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }

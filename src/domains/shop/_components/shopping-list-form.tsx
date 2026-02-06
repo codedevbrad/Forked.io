@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useRef } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { createShoppingListAction, updateShoppingListAction, ShoppingListIngredientInput } from "@/src/domains/shop/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
@@ -311,7 +312,7 @@ export function ShoppingListForm({
                   <SelectContent>
                     {ingredients?.map((ingredient) => (
                       <SelectItem key={ingredient.id} value={ingredient.id}>
-                        {ingredient.shopIngredient?.name ?? "Unnamed"}
+                        {getIngredientDisplayName(ingredient)}
                       </SelectItem>
                     ))}
                   </SelectContent>

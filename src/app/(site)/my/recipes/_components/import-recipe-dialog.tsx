@@ -14,7 +14,13 @@ type ImportRecipeDialogProps = {
   onSuccess?: () => void;
 };
 
-type ImportStep = "idle" | "fetching" | "finding" | "creating" | "success";
+type ImportStep = "idle" | "fetching" | "finding" | "creating" | "success" | "created";
+
+type SaveResult = {
+  name: string;
+  matchedIngredientNames: string[];
+  customIngredientNames: string[];
+};
 
 export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
   const [open, setOpen] = useState(false);
@@ -24,6 +30,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
   const [previewData, setPreviewData] = useState<{ name: string; ingredients: ExtractedIngredient[]; images: string[] } | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
   const [isPending, startTransition] = useTransition();
   const { mutate } = useRecipes();
 
@@ -108,20 +115,31 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
         return;
       }
 
-      setUrl("");
+      setSaveResult({
+        name: result.data.name,
+        matchedIngredientNames: result.data.matchedIngredientNames,
+        customIngredientNames: result.data.customIngredientNames,
+      });
       setPreviewData(null);
       setSelectedImageUrl(null);
-      setStep("idle");
-      setOpen(false);
-      await mutate();
-      onSuccess?.();
+      setStep("created");
     });
+  };
+
+  const handleDone = () => {
+    setUrl("");
+    setSaveResult(null);
+    setStep("idle");
+    setOpen(false);
+    mutate();
+    onSuccess?.();
   };
 
   const handleCancel = () => {
     setUrl("");
     setPreviewData(null);
     setSelectedImageUrl(null);
+    setSaveResult(null);
     setStep("idle");
     setError("");
     setOpen(false);
@@ -134,6 +152,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
       setError("");
       setPreviewData(null);
       setSelectedImageUrl(null);
+      setSaveResult(null);
       setStep("idle");
     }
   };
@@ -374,6 +393,40 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                     No thanks
                   </Button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {step === "created" && saveResult && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Recipe created</h3>
+                <p className="text-sm text-muted-foreground">
+                  {saveResult.name} has been added to your recipes.
+                </p>
+              </div>
+              <div className="border-t pt-4 space-y-3">
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Matched to your ingredients</h4>
+                  {saveResult.matchedIngredientNames.length > 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {saveResult.matchedIngredientNames.join(", ")}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">None</p>
+                  )}
+                </div>
+                {saveResult.customIngredientNames.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Added as custom (no match)</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {saveResult.customIngredientNames.join(", ")}
+                    </p>
+                  </div>
+                )}
+                <Button onClick={handleDone} className="w-full">
+                  Done
+                </Button>
               </div>
             </div>
           )}

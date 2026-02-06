@@ -10,6 +10,7 @@ import {
   addIngredientToStoredAction, 
   removeIngredientFromStoredAction 
 } from "@/src/domains/stored/db";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useStored } from "@/src/domains/stored/_contexts/useStored";
 import { Unit } from "@prisma/client";
@@ -156,7 +157,7 @@ export function ManageStoredIngredientsPopover({
                     className="flex items-center justify-between p-2 border rounded text-sm"
                   >
                     <div className="flex-1">
-                      <div className="font-medium">{si.ingredient.shopIngredient?.name ?? "Unnamed"}</div>
+                      <div className="font-medium">{getIngredientDisplayName(si.ingredient)}</div>
                       <div className="text-xs text-muted-foreground">
                         {si.quantity} {getUnitLabel(si.unit)}
                         {si.expiresAt && (
@@ -202,7 +203,7 @@ export function ManageStoredIngredientsPopover({
                     <SelectContent>
                       {availableIngredients.map((ingredient) => (
                         <SelectItem key={ingredient.id} value={ingredient.id}>
-                          {ingredient.shopIngredient?.name ?? "Unnamed"}
+                          {getIngredientDisplayName(ingredient)}
                         </SelectItem>
                       ))}
                     </SelectContent>

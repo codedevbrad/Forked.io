@@ -5,6 +5,7 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Skeleton } from "@/src/components/ui/skeleton";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { updateRecipeAction, getRecipeAction, RecipeIngredientInput } from "@/src/domains/recipes/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
@@ -269,7 +270,7 @@ export function RecipeFormEdit({
                   <SelectContent>
                     {ingredients?.map((ingredient) => (
                       <SelectItem key={ingredient.id} value={ingredient.id}>
-                        {ingredient.shopIngredient?.name ?? "Unnamed"}
+                        {getIngredientDisplayName(ingredient)}
                       </SelectItem>
                     ))}
                   </SelectContent>

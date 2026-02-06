@@ -3,6 +3,7 @@
 import { prisma } from "@/src/lib/db";
 import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { IngredientType } from "@prisma/client";
 
 /** User no longer fills type/storageType/category; those come from ShopIngredient when linked. */
@@ -61,6 +62,7 @@ export async function createIngredientAction(
       data: {
         userId: session.user.id as string,
         shopIngredientId: shop.id,
+        customIngredient: {},
         tag: tagIds && tagIds.length > 0 ? {
           connect: tagIds.map(id => ({ id }))
         } : undefined,
@@ -77,7 +79,7 @@ export async function createIngredientAction(
       },
     });
 
-    return { success: true, data: { id: ingredient.id, name: ingredient.shopIngredient?.name ?? name.trim() } };
+    return { success: true, data: { id: ingredient.id, name: getIngredientDisplayName(ingredient) } };
   } catch (error) {
     console.error("Create ingredient error:", error);
     return { success: false, error: "Failed to create ingredient" };

@@ -2,6 +2,9 @@
 
 import { IngredientType, StorageType } from "@prisma/client";
 import { cn } from "@/src/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/src/components/ui/popover";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
+import { HelpCircle } from "lucide-react";
 
 type Tag = {
   id: string;
@@ -37,7 +40,7 @@ type IngredientTitleWithPillsProps = {
 export function IngredientInputDisplay({ ingredient, className }: IngredientTitleWithPillsProps) {
   return (
     <div className={cn("space-y-2", className)}>
-      <h3 className="font-medium text-base">{ingredient.shopIngredient?.name ?? "Unnamed"}</h3>
+      <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient as Parameters<typeof getIngredientDisplayName>[0])}</h3>
     </div>
   );
 } 
@@ -46,15 +49,45 @@ function getShop(ingredient: IngredientData) {
   return ingredient.shopIngredient ?? undefined;
 }
 
+/** True when ingredient has no linked ShopIngredient (name stored in customIngredient). */
+function isCustomIngredient(ingredient: IngredientData & { customIngredient?: unknown }) {
+  return !ingredient.shopIngredient;
+}
+
+function CustomPill() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700 hover:bg-amber-200/80 dark:hover:bg-amber-900/50 transition-colors"
+          aria-label="What does Custom mean?"
+        >
+          <HelpCircle className="w-3 h-3" />
+          Custom
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="max-w-xs">
+        <p className="text-sm text-muted-foreground">
+          <strong className="text-foreground">Custom</strong> ingredients were not matched to an existing item in the catalogue (e.g. when importing a recipe from a URL). The name was saved as entered so you can still use it in recipes and lists. You can later link it to a shop ingredient if one is added.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function IngredientTitleWithPills({
   ingredient,
   className,
 }: IngredientTitleWithPillsProps) {
   const shop = getShop(ingredient);
+  const isCustom = isCustomIngredient(ingredient as IngredientData & { customIngredient?: unknown });
   return (
     <div className={cn("space-y-2", className)}>
-      <h3 className="font-medium text-base">{ingredient.shopIngredient?.name ?? "Unnamed"}</h3>
+      <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient as Parameters<typeof getIngredientDisplayName>[0])}</h3>
       <div className="flex flex-wrap gap-1.5">
+        {/* Custom pill (no linked ShopIngredient) */}
+        {isCustom && <CustomPill />}
         {/* Type Pill (from ShopIngredient) */}
         {shop?.type && (
           <span
@@ -127,6 +160,7 @@ export function IngredientCard({
 }: IngredientCardProps) {
   const shop = getShop(ingredient as IngredientData);
   const hasFullData = Boolean(shop?.type);
+  const isCustom = isCustomIngredient(ingredient as IngredientData & { customIngredient?: unknown });
 
   return (
     <div className={cn("p-3 border rounded-lg space-y-2", className)}>
@@ -134,7 +168,12 @@ export function IngredientCard({
         <IngredientTitleWithPills ingredient={ingredient as IngredientData} />
       ) : (
         <div className="space-y-2">
-          <h3 className="font-medium text-base">{ingredient.shopIngredient?.name ?? "Unnamed"}</h3>
+          <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient as Parameters<typeof getIngredientDisplayName>[0])}</h3>
+          {showPills && isCustom && (
+            <div className="flex flex-wrap gap-1.5">
+              <CustomPill />
+            </div>
+          )}
         </div>
       )}
       {children && <div className="mt-2">{children}</div>}

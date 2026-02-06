@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { getRecipeAction } from "@/src/domains/recipes/db";
 import { GoBackButton } from "@/src/components/custom/goBack";
 import { Button } from "@/src/components/ui/button";
@@ -98,7 +99,7 @@ export default async function RecipePage({ params }: Props) {
                     <span className="text-foreground font-medium tabular-nums">
                       {ri.quantity} {ri.unit}
                     </span>
-                    <span>{ri.ingredient.shopIngredient?.name ?? "Unnamed"}</span>
+                    <span>{getIngredientDisplayName(ri.ingredient)}</span>
                   </li>
                 ))}
               </ul>

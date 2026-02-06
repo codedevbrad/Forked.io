@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { addIngredientToStoredAction } from "@/src/domains/stored/db";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useStoredLocation, useStored } from "@/src/domains/stored/_contexts/useStored";
@@ -90,7 +91,7 @@ export function AddIngredientToStoredForm({
             {ingredients && ingredients.length > 0 ? (
               ingredients.map((ingredient) => (
                 <SelectItem key={ingredient.id} value={ingredient.id}>
-                  {ingredient.shopIngredient?.name ?? "Unnamed"}
+                  {getIngredientDisplayName(ingredient)}
                 </SelectItem>
               ))
             ) : (

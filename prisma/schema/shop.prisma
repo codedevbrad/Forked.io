@@ -16,7 +16,6 @@ model ShoppingList {
 }
 
 
-
 model ShoppingListIngredient {
   id String @id @default(cuid())
   shoppingList ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)

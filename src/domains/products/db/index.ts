@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
 import { scrapeProducts } from "@/src/domains/products/_fetch/products";
 import type { ScrapedProduct } from "@/src/domains/products/_fetch/products";
+import { filterValidProducts } from "@/src/domains/products/_fetch/analyse";
 import { Retailer, Unit } from "@prisma/client";
 
 export async function getProductsAction() {
@@ -13,9 +14,6 @@ export async function getProductsAction() {
     if (!session?.user?.id) return [];
 
     const products = await prisma.shopProduct.findMany({
-      where: {
-        userId: session.user.id as string,
-      },
       orderBy: { createdAt: "desc" },
     });
     return products;
@@ -30,11 +28,8 @@ export async function getProductAction(id: string) {
     const session = await auth();
     if (!session?.user?.id) return null;
 
-    const product = await prisma.shopProduct.findFirst({
-      where: {
-        id,
-        userId: session.user.id as string,
-      },
+    const product = await prisma.shopProduct.findUnique({
+      where: { id },
     });
     return product;
   } catch (error) {
@@ -54,19 +49,8 @@ export async function createProductAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const session = await auth();
-    const userId = session?.user?.id;
-    if (!userId || typeof userId !== "string") {
+    if (!session?.user?.id) {
       return { success: false, error: "Unauthorized" };
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) {
-      return {
-        success: false,
-        error: "User not found. Please sign out and sign in again.",
-      };
     }
 
     if (!productName?.trim()) {
@@ -82,7 +66,6 @@ export async function createProductAction(
       data: {
         retailer,
         productName: productName.trim(),
-        userId: user.id,
         url: url?.trim() || null,
         price: priceInt ?? null,
         size: size ?? null,
@@ -118,8 +101,8 @@ export async function updateProductAction(
       return { success: false, error: "Product name is required" };
     }
 
-    const existing = await prisma.shopProduct.findFirst({
-      where: { id, userId: session.user.id as string },
+    const existing = await prisma.shopProduct.findUnique({
+      where: { id },
     });
     if (!existing) {
       return { success: false, error: "Product not found" };
@@ -157,8 +140,8 @@ export async function deleteProductAction(id: string): Promise<ActionResult> {
       return { success: false, error: "Unauthorized" };
     }
 
-    const product = await prisma.shopProduct.findFirst({
-      where: { id, userId: session.user.id as string },
+    const product = await prisma.shopProduct.findUnique({
+      where: { id },
     });
     if (!product) {
       return { success: false, error: "Product not found" };
@@ -201,7 +184,8 @@ export async function findProductsAction(
     }
 
     const products = await scrapeProducts(retailer, term);
-    return { success: true, data: products };
+    const filteredProducts = await filterValidProducts(products, term);
+    return { success: true, data: filteredProducts };
   } catch (error) {
     console.error("Find products error:", error);
     return {

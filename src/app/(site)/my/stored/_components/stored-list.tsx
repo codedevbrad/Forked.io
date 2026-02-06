@@ -6,6 +6,7 @@ import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { StoredForm } from "@/src/domains/stored/_components/stored-form";
 import { deleteStoredAction } from "@/src/domains/stored/db";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { useStored } from "@/src/domains/stored/_contexts/useStored";
 import { Trash2, Pencil, ExternalLink } from "lucide-react";
 import { StorageType } from "@prisma/client";
@@ -159,7 +160,7 @@ export function StoredList() {
                   <ul className="text-sm text-muted-foreground space-y-1 ml-4">
                     {location.ingredients.slice(0, 3).map((si) => (
                       <li key={si.id}>
-                        • {si.quantity} {si.unit} {si.ingredient.shopIngredient?.name ?? "Unnamed"}
+                        • {si.quantity} {si.unit} {getIngredientDisplayName(si.ingredient)}
                         {si.expiresAt && (
                           <span className="text-xs ml-2">
                             (expires: {new Date(si.expiresAt).toLocaleDateString()})

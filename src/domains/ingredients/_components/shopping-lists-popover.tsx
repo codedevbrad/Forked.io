@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/src/components/ui/button";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { useShoppingLists } from "@/src/domains/shop/_contexts/useShoppingLists";
 import { ShoppingCart, ChevronLeft, ChefHat, X, GripVertical } from "lucide-react";
 
@@ -191,7 +192,7 @@ export function ShoppingListsPopover() {
                     {selectedList.ingredients.map((ing) => (
                       <li key={ing.id} className="flex items-center gap-2 border rounded-md my-3 p-2 pl-4 shadow-md">
                         <span>
-                           {ing.quantity} {ing.unit} {ing.ingredient.shopIngredient?.name ?? "Unnamed"}
+                           {ing.quantity} {ing.unit} {getIngredientDisplayName(ing.ingredient)}
                         </span>
                         {ing.recipe && (
                           <span title={`From recipe: ${ing.recipe.name}`}>

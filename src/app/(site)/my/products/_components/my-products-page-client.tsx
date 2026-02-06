@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { ProductsList } from "@/src/domains/products/_components/products-list";
-import { FindProductsModal } from "@/src/domains/products/_components/find-products-modal";
 import { ProductModal } from "@/src/domains/products/_components/product-modal";
+import Link from "next/link";
 import { IngredientsPageClient } from "../ingredients/_components/ingredients-page-client";
 import { Button } from "@/src/components/ui/button";
-import { Package, UtensilsCrossed } from "lucide-react";
+import { Package, UtensilsCrossed, Search } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 
 type Display = "products" | "ingredients";
@@ -73,7 +73,12 @@ export function MyProductsPageClient() {
         {/* Actions per display */}
         {display === "products" && (
           <div className="flex flex-wrap items-center gap-2">
-            <FindProductsModal />
+            <Link href="/system/products/find">
+              <Button variant="outline">
+                <Search className="w-4 h-4 mr-2" />
+                Find products
+              </Button>
+            </Link>
             <ProductModal mode="create" />
           </div>
         )}

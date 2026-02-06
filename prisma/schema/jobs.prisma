@@ -1,0 +1,17 @@
+
+enum jobType {
+    FIND_PRODUCTS
+    DISCOVER_VIDEOS
+    DISCOVER_WEBSITES
+}
+model BackgroundJob {
+    id String @id @default(cuid())
+    name String
+    description String
+    status String
+    progress Int
+    startedAt DateTime
+    completedAt DateTime
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}

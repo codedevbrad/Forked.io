@@ -1,71 +1,52 @@
 import "dotenv/config"
 import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, IngredientType, StorageType } from "@prisma/client"
+import { meatItems, fishItems, vegItems } from "./data/ingredients";
 
-import { IngredientType, StorageType } from "@prisma/client";
+const INGREDIENTS = [
+  ...meatItems,
+  ...fishItems,
+  ...vegItems,
+] as Array<{ name: string; type: IngredientType; storageType: StorageType }>;
 
-const INGREDIENTS: Array<{
-  name: string;
-  type: IngredientType;
-  storageType: StorageType;
-}> = [
-  { name: "Milk (semi-skimmed or full)", type: "drink", storageType: "fridge" },
-  { name: "Butter", type: "food", storageType: "fridge" },
-  { name: "Eggs", type: "food", storageType: "fridge" },
-  { name: "Cheese (cheddar)", type: "food", storageType: "fridge" },
-  { name: "Greek yogurt", type: "food", storageType: "fridge" },
-  { name: "Cooking oil spread (optional)", type: "food", storageType: "fridge" },
-  { name: "Mayonnaise", type: "condiment", storageType: "fridge" },
-  { name: "Ketchup", type: "condiment", storageType: "fridge" },
-  { name: "Mustard", type: "condiment", storageType: "pantry" },
-  { name: "Fresh herbs (parsley / coriander)", type: "food", storageType: "fridge" },
-  { name: "Lemon", type: "food", storageType: "fridge" },
-  { name: "Garlic", type: "food", storageType: "pantry" },
-  { name: "Ginger", type: "food", storageType: "fridge" },
-];
+/** Seeds ShopIngredient records from prisma/seed/ingredients.ts data. */
+export async function seedShopIngredients(prisma: PrismaClient) {
+  console.log("🌱 Seeding ShopIngredients...");
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL environment variable is not set");
-}
-
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
-
-async function main() {
-  console.log("🌱 Seeding ingredients...");
-
-  for (const ing of INGREDIENTS) {
-    const existing = await prisma.ingredient.findFirst({
-      where: { name: ing.name, userId: null },
+  for (const item of INGREDIENTS) {
+    const existing = await prisma.shopIngredient.findFirst({
+      where: { name: item.name },
     });
     if (existing) {
-      await prisma.ingredient.update({
-        where: { id: existing.id },
-        data: { type: ing.type, storageType: ing.storageType },
-      });
-    } else {
-      await prisma.ingredient.create({
-        data: {
-          name: ing.name,
-          type: ing.type,
-          storageType: ing.storageType,
-          userId: null,
-        },
-      });
+      console.log(`⏭️  Skipped (exists): ${item.name}`);
+      continue;
     }
-    console.log(`✅ Seeded ingredient: ${ing.name}`);
+    await prisma.shopIngredient.create({
+      data: {
+        name: item.name,
+        type: item.type,
+        storageType: item.storageType,
+      },
+    });
+    console.log(`✅ Seeded ShopIngredient: ${item.name}`);
   }
 
-  console.log("✨ Ingredients seeding completed!");
+  console.log("✨ ShopIngredients seeding completed!");
 }
 
-main()
-  .catch((e) => {
-    console.error("❌ Seeding failed:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// Only run when executed directly (e.g. npx tsx prisma/seed/ingredients.seed.ts)
+const isEntry = process.argv[1]?.includes("ingredients.seed") ?? false;
+
+if (isEntry) {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL environment variable is not set");
+  const adapter = new PrismaPg({ connectionString });
+  const prisma = new PrismaClient({ adapter });
+
+  seedShopIngredients(prisma)
+    .catch((e) => {
+      console.error("❌ Seeding failed:", e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}

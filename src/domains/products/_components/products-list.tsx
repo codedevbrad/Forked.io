@@ -4,11 +4,11 @@ import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { ProductModal } from "@/src/domains/products/_components/product-modal";
-import { FindProductsModal } from "@/src/domains/products/_components/find-products-modal";
 import { deleteProductAction } from "@/src/domains/products/db";
+import Link from "next/link";
 import { useProducts } from "@/src/domains/products/_contexts/useProducts";
 import { Retailer, Unit } from "@prisma/client";
-import { Pencil, Trash2, ExternalLink, ImageOff } from "lucide-react";
+import { Pencil, Trash2, ExternalLink, ImageOff, Search } from "lucide-react";
 import Image from "next/image";
 
 type ShopProduct = {
@@ -75,7 +75,12 @@ export function ProductsList({ showHeaderActions = true }: ProductsListProps) {
       <div className="space-y-4">
         {showHeaderActions && (
           <div className="flex justify-end gap-2">
-            <FindProductsModal />
+            <Link href="/system/products/find">
+              <Button variant="outline">
+                <Search className="w-4 h-4 mr-2" />
+                Find products
+              </Button>
+            </Link>
             <ProductModal mode="create" />
           </div>
         )}
@@ -100,7 +105,12 @@ export function ProductsList({ showHeaderActions = true }: ProductsListProps) {
       />
       {showHeaderActions && (
         <div className="mb-4 flex justify-end gap-2">
-          <FindProductsModal />
+          <Link href="/system/products/find">
+            <Button variant="outline">
+              <Search className="w-4 h-4 mr-2" />
+              Find products
+            </Button>
+          </Link>
           <ProductModal mode="create" />
         </div>
       )}

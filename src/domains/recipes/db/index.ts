@@ -3,7 +3,7 @@
 import { prisma } from "@/src/lib/db";
 import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
-import { Unit, IngredientType } from "@prisma/client";
+import { Unit } from "@prisma/client";
 import { scrapeRecipeFromUrl } from "@/src/services/scraper";
 import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
 import { uploadRecipeImageToR2 } from "@/src/lib/cloudflare";
@@ -201,7 +201,7 @@ export async function deleteRecipeAction(id: string): Promise<ActionResult> {
     
     // Handle Prisma-specific errors
     if (error && typeof error === 'object' && 'code' in error) {
-      const prismaError = error as { code: string; meta?: any };
+      const prismaError = error as { code: string; meta?: unknown };
       
       if (prismaError.code === 'P2025') {
         return { success: false, error: "Recipe not found or already deleted" };
@@ -394,14 +394,16 @@ export async function uploadRecipeImageAction(
 }
 
 /**
- * Saves a previewed recipe to the database
+ * Saves a previewed recipe to the database.
+ * Matches scraped ingredients to existing ShopIngredient by name (case-insensitive).
+ * Unmatched names are stored in Ingredient.customIngredient and reported as custom.
  */
 export async function savePreviewedRecipeAction(
   name: string,
   ingredients: ExtractedIngredient[],
   originalUrl: string,
   imageUrl?: string
-): Promise<ActionResult<{ id: string; name: string }>> {
+): Promise<ActionResult<{ id: string; name: string; matchedIngredientNames: string[]; customIngredientNames: string[] }>> {
   try {
     const session = await auth();
     
@@ -417,51 +419,59 @@ export async function savePreviewedRecipeAction(
       return { success: false, error: "At least one ingredient is required" };
     }
 
-    // Step 3: Create or find ingredients and build recipe ingredient inputs
-    // Use a Map to deduplicate ingredients by ingredientId
     const recipeIngredientsMap = new Map<string, RecipeIngredientInput>();
+    const matchedIngredientNames: string[] = [];
+    const customIngredientNames: string[] = [];
     const userId = session.user.id as string;
 
     for (const extractedIng of ingredients) {
-      // Try to find existing ingredient by user + ShopIngredient name (name lives on ShopIngredient)
-      let ingredient = await prisma.ingredient.findFirst({
-        where: {
-          userId,
-          shopIngredient: { name: extractedIng.name },
-        },
+      const trimmedName = extractedIng.name.trim();
+
+      // Try to find existing ShopIngredient by name (case-insensitive)
+      const shopIngredient = await prisma.shopIngredient.findFirst({
+        where: { name: { equals: trimmedName, mode: "insensitive" } },
       });
 
-      // If not found, create ShopIngredient then Ingredient (one-to-one; name on ShopIngredient)
-      if (!ingredient) {
-        const shop = await prisma.shopIngredient.create({
-          data: {
-            name: extractedIng.name,
-            type: IngredientType.food,
-            storageType: null,
-            categoryId: null,
-          },
+      let ingredient: { id: string };
+
+      if (shopIngredient) {
+        // Match found: find or create user's Ingredient for this ShopIngredient
+        let userIngredient = await prisma.ingredient.findFirst({
+          where: { userId, shopIngredientId: shopIngredient.id },
         });
+        if (!userIngredient) {
+          userIngredient = await prisma.ingredient.create({
+            data: {
+              userId,
+              shopIngredientId: shopIngredient.id,
+              customIngredient: {},
+            },
+          });
+        }
+        ingredient = userIngredient;
+        if (!matchedIngredientNames.includes(shopIngredient.name)) {
+          matchedIngredientNames.push(shopIngredient.name);
+        }
+      } else {
+        // No match: create user's Ingredient with customIngredient only
         ingredient = await prisma.ingredient.create({
           data: {
             userId,
-            shopIngredientId: shop.id,
+            shopIngredientId: null,
+            customIngredient: { name: trimmedName },
           },
         });
+        if (!customIngredientNames.includes(trimmedName)) {
+          customIngredientNames.push(trimmedName);
+        }
       }
 
-      // Check if this ingredient already exists in the map
       const existing = recipeIngredientsMap.get(ingredient.id);
-      
       if (existing) {
-        // If same unit, combine quantities
         if (existing.unit === extractedIng.unit) {
           existing.quantity += extractedIng.quantity;
-        } else {
-          // If different units, keep the first one (you could also log a warning here)
-          // This prevents the unique constraint violation
         }
       } else {
-        // Add new ingredient to map
         recipeIngredientsMap.set(ingredient.id, {
           ingredientId: ingredient.id,
           quantity: extractedIng.quantity,
@@ -470,10 +480,8 @@ export async function savePreviewedRecipeAction(
       }
     }
 
-    // Convert map to array
     const recipeIngredients = Array.from(recipeIngredientsMap.values());
 
-    // Step 4: Create the recipe
     const recipe = await prisma.recipe.create({
       data: {
         name: name.trim(),
@@ -490,7 +498,15 @@ export async function savePreviewedRecipeAction(
       },
     });
 
-    return { success: true, data: { id: recipe.id, name: recipe.name } };
+    return {
+      success: true,
+      data: {
+        id: recipe.id,
+        name: recipe.name,
+        matchedIngredientNames,
+        customIngredientNames,
+      },
+    };
   } catch (error) {
     console.error("Save previewed recipe error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -507,7 +523,7 @@ export async function savePreviewedRecipeAction(
  */
 export async function importRecipeFromUrlAction(
   url: string
-): Promise<ActionResult<{ id: string; name: string }>> {
+): Promise<ActionResult<{ id: string; name: string; matchedIngredientNames: string[]; customIngredientNames: string[] }>> {
   try {
     const session = await auth();
     
@@ -519,10 +535,7 @@ export async function importRecipeFromUrlAction(
       return { success: false, error: "URL is required" };
     }
 
-    // Step 1: Scrape the recipe from URL
     const scrapedData = await scrapeRecipeFromUrl(url.trim());
-
-    // Step 2: Extract recipe data using OpenAI
     const extractedData = await extractRecipeData(scrapedData.text, scrapedData.images);
 
     if (!extractedData.name || extractedData.ingredients.length === 0) {
@@ -532,51 +545,55 @@ export async function importRecipeFromUrlAction(
       };
     }
 
-    // Step 3: Create or find ingredients and build recipe ingredient inputs
-    // Use a Map to deduplicate ingredients by ingredientId
     const recipeIngredientsMap = new Map<string, RecipeIngredientInput>();
+    const matchedIngredientNames: string[] = [];
+    const customIngredientNames: string[] = [];
     const userId = session.user.id as string;
 
     for (const extractedIng of extractedData.ingredients) {
-      // Try to find existing ingredient by user + ShopIngredient name
-      let ingredient = await prisma.ingredient.findFirst({
-        where: {
-          userId,
-          shopIngredient: { name: extractedIng.name },
-        },
+      const trimmedName = extractedIng.name.trim();
+      const shopIngredient = await prisma.shopIngredient.findFirst({
+        where: { name: { equals: trimmedName, mode: "insensitive" } },
       });
 
-      // If not found, create ShopIngredient then Ingredient (one-to-one)
-      if (!ingredient) {
-        const shop = await prisma.shopIngredient.create({
-          data: {
-            name: extractedIng.name,
-            type: IngredientType.food,
-            storageType: null,
-            categoryId: null,
-          },
+      let ingredient: { id: string };
+
+      if (shopIngredient) {
+        let userIngredient = await prisma.ingredient.findFirst({
+          where: { userId, shopIngredientId: shopIngredient.id },
         });
+        if (!userIngredient) {
+          userIngredient = await prisma.ingredient.create({
+            data: {
+              userId,
+              shopIngredientId: shopIngredient.id,
+              customIngredient: {},
+            },
+          });
+        }
+        ingredient = userIngredient;
+        if (!matchedIngredientNames.includes(shopIngredient.name)) {
+          matchedIngredientNames.push(shopIngredient.name);
+        }
+      } else {
         ingredient = await prisma.ingredient.create({
           data: {
             userId,
-            shopIngredientId: shop.id,
+            shopIngredientId: null,
+            customIngredient: { name: trimmedName },
           },
         });
+        if (!customIngredientNames.includes(trimmedName)) {
+          customIngredientNames.push(trimmedName);
+        }
       }
 
-      // Check if this ingredient already exists in the map
       const existing = recipeIngredientsMap.get(ingredient.id);
-      
       if (existing) {
-        // If same unit, combine quantities
         if (existing.unit === extractedIng.unit) {
           existing.quantity += extractedIng.quantity;
-        } else {
-          // If different units, keep the first one (you could also log a warning here)
-          // This prevents the unique constraint violation
         }
       } else {
-        // Add new ingredient to map
         recipeIngredientsMap.set(ingredient.id, {
           ingredientId: ingredient.id,
           quantity: extractedIng.quantity,
@@ -585,10 +602,8 @@ export async function importRecipeFromUrlAction(
       }
     }
 
-    // Convert map to array
     const recipeIngredients = Array.from(recipeIngredientsMap.values());
 
-    // Step 4: Create the recipe
     const recipe = await prisma.recipe.create({
       data: {
         name: extractedData.name,
@@ -604,7 +619,15 @@ export async function importRecipeFromUrlAction(
       },
     });
 
-    return { success: true, data: { id: recipe.id, name: recipe.name } };
+    return {
+      success: true,
+      data: {
+        id: recipe.id,
+        name: recipe.name,
+        matchedIngredientNames,
+        customIngredientNames,
+      },
+    };
   } catch (error) {
     console.error("Import recipe from URL error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

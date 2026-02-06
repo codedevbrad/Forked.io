@@ -14,9 +14,12 @@ export default function SystemLayout({ children }: { children: React.ReactNode }
                     <li>
                         <Link href="/system/ingredients">Ingredients</Link>
                     </li>
+                    <li>
+                        <Link href="/system/jobs">Jobs</Link>
+                    </li>
                 </ul>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 px-5 py-6">
                 {children}
             </div>
             

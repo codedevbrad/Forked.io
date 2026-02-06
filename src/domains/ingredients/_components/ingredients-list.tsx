@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { IngredientCard } from "@/src/domains/ingredients/_components/ingredient";
 import { ShoppingListsPopover } from "@/src/domains/ingredients/_components/shopping-lists-popover";
 import { deleteIngredientAction } from "@/src/domains/ingredients/db";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useShoppingLists } from "@/src/domains/shop/_contexts/useShoppingLists";
 import { useStored } from "@/src/domains/stored/_contexts/useStored";
@@ -137,10 +138,7 @@ export function IngredientsList({ filteredIngredients }: IngredientsListProps) {
             <IngredientCard
               ingredient={{
                 ...ingredient,
-                name:
-                  (ingredient as { name?: string }).name ??
-                  (ingredient.shopIngredient as { name?: string } | null)?.name ??
-                  "",
+                name: getIngredientDisplayName(ingredient),
               }}
             />
             <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">

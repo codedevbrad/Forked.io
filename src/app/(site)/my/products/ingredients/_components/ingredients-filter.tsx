@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Button } from "@/src/components/ui/button";
+import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { IngredientType, StorageType } from "@prisma/client";
 import { X, Search, Filter } from "lucide-react";
 import { useTags } from "@/src/domains/tags/_contexts/useTags";
@@ -35,7 +36,7 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(ingredient =>
-        (ingredient.shopIngredient?.name ?? "").toLowerCase().includes(query)
+        getIngredientDisplayName(ingredient).toLowerCase().includes(query)
       );
     }
 

@@ -1,25 +1,9 @@
-import "dotenv/config";
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from "@prisma/client";
-
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL environment variable is not set");
-}
-
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
-
-async function main() {
-  console.log("🌱 Seeding categories...");
-
-  const categories = [
+export const categories = [
     {
       name: "Seasonings",
       color: "#059669", // Emerald
       icon: "seasonings",
-    }
+    },
     {
       name: "Meat",
       color: "#dc2626", // Red
@@ -101,27 +85,3 @@ async function main() {
       icon: "chocolate",
     }
   ];
-
-  for (const category of categories) {
-    await prisma.category.upsert({
-      where: { name: category.name },
-      update: {
-        color: category.color,
-        icon: category.icon,
-      },
-      create: category,
-    });
-    console.log(`✅ Seeded category: ${category.name}`);
-  }
-
-  console.log("✨ Seeding completed!");
-}
-
-main()
-  .catch((e) => {
-    console.error("❌ Seeding failed:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
