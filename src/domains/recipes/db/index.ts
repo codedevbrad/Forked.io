@@ -3,7 +3,7 @@
 import { prisma } from "@/src/lib/db";
 import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
-import { Unit } from "@prisma/client";
+import { Unit, IngredientType } from "@prisma/client";
 import { scrapeRecipeFromUrl } from "@/src/services/scraper";
 import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
 import { uploadRecipeImageToR2 } from "@/src/lib/cloudflare";
@@ -239,7 +239,7 @@ export async function getRecipesAction() {
       include: {
         ingredients: {
           include: {
-            ingredient: { include: { shopIngredient: true } },
+            ingredient: { include: { shopIngredient: true, customUserIngredient: true } },
           },
         },
         tags: true,
@@ -272,7 +272,7 @@ export async function getRecipeAction(id: string) {
       include: {
         ingredients: {
           include: {
-            ingredient: { include: { shopIngredient: true } },
+            ingredient: { include: { shopIngredient: true, customUserIngredient: true } },
           },
         },
         tags: true,
@@ -396,14 +396,14 @@ export async function uploadRecipeImageAction(
 /**
  * Saves a previewed recipe to the database.
  * Matches scraped ingredients to existing ShopIngredient by name (case-insensitive).
- * Unmatched names are stored in Ingredient.customIngredient and reported as custom.
+ * Unmatched names are linked to a CustomUserIngredient (find-or-create).
  */
 export async function savePreviewedRecipeAction(
   name: string,
   ingredients: ExtractedIngredient[],
   originalUrl: string,
   imageUrl?: string
-): Promise<ActionResult<{ id: string; name: string; matchedIngredientNames: string[]; customIngredientNames: string[] }>> {
+): Promise<ActionResult<{ id: string; name: string; matchedIngredientNames: string[]; existingCustomIngredientNames: string[]; newCustomIngredientNames: string[] }>> {
   try {
     const session = await auth();
     
@@ -421,8 +421,16 @@ export async function savePreviewedRecipeAction(
 
     const recipeIngredientsMap = new Map<string, RecipeIngredientInput>();
     const matchedIngredientNames: string[] = [];
-    const customIngredientNames: string[] = [];
+    const existingCustomIngredientNames: string[] = [];
+    const newCustomIngredientNames: string[] = [];
     const userId = session.user.id as string;
+
+    // Pre-fetch user's existing CustomUserIngredients to avoid N+1 queries
+    const existingCustomUserIngredients = await prisma.customUserIngredient.findMany({
+      where: { userId },
+    });
+    // Snapshot the IDs that existed before this import so we can distinguish existing vs new
+    const preExistingCustomIds = new Set(existingCustomUserIngredients.map((c) => c.id));
 
     for (const extractedIng of ingredients) {
       const trimmedName = extractedIng.name.trim();
@@ -444,7 +452,6 @@ export async function savePreviewedRecipeAction(
             data: {
               userId,
               shopIngredientId: shopIngredient.id,
-              customIngredient: {},
             },
           });
         }
@@ -453,16 +460,47 @@ export async function savePreviewedRecipeAction(
           matchedIngredientNames.push(shopIngredient.name);
         }
       } else {
-        // No match: create user's Ingredient with customIngredient only
-        ingredient = await prisma.ingredient.create({
-          data: {
-            userId,
-            shopIngredientId: null,
-            customIngredient: { name: trimmedName },
-          },
+        // No ShopIngredient match — find or create a CustomUserIngredient
+        let customUserIng = existingCustomUserIngredients.find(
+          (c) => c.name.toLowerCase() === trimmedName.toLowerCase()
+        );
+
+        const wasPreExisting = customUserIng ? preExistingCustomIds.has(customUserIng.id) : false;
+
+        if (!customUserIng) {
+          customUserIng = await prisma.customUserIngredient.create({
+            data: {
+              userId,
+              name: trimmedName,
+              type: IngredientType.food,
+            },
+          });
+          // Cache so later iterations in this loop can find it
+          existingCustomUserIngredients.push(customUserIng);
+        }
+
+        // Find or create user's Ingredient linked to this CustomUserIngredient
+        let userIngredient = await prisma.ingredient.findFirst({
+          where: { userId, customUserIngredientId: customUserIng.id },
         });
-        if (!customIngredientNames.includes(trimmedName)) {
-          customIngredientNames.push(trimmedName);
+        if (!userIngredient) {
+          userIngredient = await prisma.ingredient.create({
+            data: {
+              userId,
+              customUserIngredientId: customUserIng.id,
+            },
+          });
+        }
+        ingredient = userIngredient;
+
+        if (wasPreExisting) {
+          if (!existingCustomIngredientNames.includes(trimmedName)) {
+            existingCustomIngredientNames.push(trimmedName);
+          }
+        } else {
+          if (!newCustomIngredientNames.includes(trimmedName)) {
+            newCustomIngredientNames.push(trimmedName);
+          }
         }
       }
 
@@ -504,7 +542,8 @@ export async function savePreviewedRecipeAction(
         id: recipe.id,
         name: recipe.name,
         matchedIngredientNames,
-        customIngredientNames,
+        existingCustomIngredientNames,
+        newCustomIngredientNames,
       },
     };
   } catch (error) {
@@ -550,6 +589,11 @@ export async function importRecipeFromUrlAction(
     const customIngredientNames: string[] = [];
     const userId = session.user.id as string;
 
+    // Pre-fetch user's existing CustomUserIngredients to avoid N+1 queries
+    const existingCustomUserIngredients = await prisma.customUserIngredient.findMany({
+      where: { userId },
+    });
+
     for (const extractedIng of extractedData.ingredients) {
       const trimmedName = extractedIng.name.trim();
       const shopIngredient = await prisma.shopIngredient.findFirst({
@@ -567,7 +611,6 @@ export async function importRecipeFromUrlAction(
             data: {
               userId,
               shopIngredientId: shopIngredient.id,
-              customIngredient: {},
             },
           });
         }
@@ -576,13 +619,36 @@ export async function importRecipeFromUrlAction(
           matchedIngredientNames.push(shopIngredient.name);
         }
       } else {
-        ingredient = await prisma.ingredient.create({
-          data: {
-            userId,
-            shopIngredientId: null,
-            customIngredient: { name: trimmedName },
-          },
+        // No ShopIngredient match — find or create a CustomUserIngredient
+        let customUserIng = existingCustomUserIngredients.find(
+          (c) => c.name.toLowerCase() === trimmedName.toLowerCase()
+        );
+
+        if (!customUserIng) {
+          customUserIng = await prisma.customUserIngredient.create({
+            data: {
+              userId,
+              name: trimmedName,
+              type: IngredientType.food,
+            },
+          });
+          existingCustomUserIngredients.push(customUserIng);
+        }
+
+        // Find or create user's Ingredient linked to this CustomUserIngredient
+        let userIngredient = await prisma.ingredient.findFirst({
+          where: { userId, customUserIngredientId: customUserIng.id },
         });
+        if (!userIngredient) {
+          userIngredient = await prisma.ingredient.create({
+            data: {
+              userId,
+              customUserIngredientId: customUserIng.id,
+            },
+          });
+        }
+        ingredient = userIngredient;
+
         if (!customIngredientNames.includes(trimmedName)) {
           customIngredientNames.push(trimmedName);
         }

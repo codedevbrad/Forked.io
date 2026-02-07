@@ -17,8 +17,9 @@
     "db:create": "psql -h localhost -p 5433 -U postgres -c \"CREATE DATABASE foodapp;\"",
     "db:drop": "psql -h localhost -p 5433 -U postgres -c \"DROP DATABASE foodapp;\"",
     "db:redo": "npm run db:drop && npm run db:create && npm run db:migrate",
-    "db:seed": "npx tsx prisma/seed.ts",
-    "cloudflare:test": "npx tsx scripts/test-r2.ts"
+    "db:seed": "npx tsx prisma/seed/index.ts",
+    "cloudflare:test": "npx tsx scripts/test-r2.ts",
+    "db:clean": "npm run db:reset && npm run db:seed"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.975.0",

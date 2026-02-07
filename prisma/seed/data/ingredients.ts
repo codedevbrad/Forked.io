@@ -1,7 +1,10 @@
+import { IngredientType, StorageType } from "@prisma/client";
+
 export const meatItems = [
     // =====================
     // BEEF (COW)
     // =====================
+    { name: "Beef", type: "food", storageType: "fridge" },
     { name: "Beef mince", type: "food", storageType: "fridge" },
     { name: "Sirloin steak", type: "food", storageType: "fridge" },
     { name: "Ribeye steak", type: "food", storageType: "fridge" },
@@ -12,9 +15,8 @@ export const meatItems = [
     { name: "Brisket", type: "food", storageType: "fridge" },
     { name: "Shin", type: "food", storageType: "fridge" },
     { name: "Short ribs", type: "food", storageType: "fridge" },
-    { name: "BeefBurgers", type: "food", storageType: "fridge" },
+    { name: "Beef burgers", type: "food", storageType: "fridge" },
     { name: "Corned beef", type: "food", storageType: "pantry" },
-    { name: "Beef mince", type: "food", storageType: "fridge" },
   
     // =====================
     // LAMB / MUTTON (SHEEP)
@@ -31,6 +33,7 @@ export const meatItems = [
     // =====================
     // PORK (PIG)
     // =====================
+    { name: "Pork", type: "food", storageType: "fridge" },
     { name: "Pork mince", type: "food", storageType: "fridge" },
     { name: "Pork chops", type: "food", storageType: "fridge" },
     { name: "Pork loin", type: "food", storageType: "fridge" },
@@ -47,6 +50,7 @@ export const meatItems = [
     // =====================
     // CHICKEN
     // =====================
+    { name: "Chicken", type: "food", storageType: "fridge" },
     { name: "Whole chicken", type: "food", storageType: "fridge" },
     { name: "Chicken breast", type: "food", storageType: "fridge" },
     { name: "Chicken thighs", type: "food", storageType: "fridge" },
@@ -58,6 +62,7 @@ export const meatItems = [
     // =====================
     // TURKEY
     // =====================
+    { name: "Turkey", type: "food", storageType: "fridge" },
     { name: "Turkey breast", type: "food", storageType: "fridge" },
     { name: "Turkey mince", type: "food", storageType: "fridge" },
     { name: "Turkey sausages", type: "food", storageType: "fridge" },
@@ -66,6 +71,7 @@ export const meatItems = [
     // =====================
     // DUCK
     // =====================
+    { name: "Duck", type: "food", storageType: "fridge" },
     { name: "Whole duck", type: "food", storageType: "fridge" },
     { name: "Duck breast", type: "food", storageType: "fridge" },
     { name: "Duck legs", type: "food", storageType: "fridge" },
@@ -118,30 +124,13 @@ export const fishItems = [
     { name: "Whole sole", type: "food", storageType: "fridge" },
   
     // =====================
-    // SHELLFISH & SEAFOOD (FRESH)
-    // =====================
-    { name: "Raw prawns", type: "food", storageType: "fridge" },
-    { name: "Cooked prawns", type: "food", storageType: "fridge" },
-    { name: "King prawns", type: "food", storageType: "fridge" },
-    { name: "Langoustines", type: "food", storageType: "fridge" },
-    { name: "Scallops", type: "food", storageType: "fridge" },
-    { name: "Mussels", type: "food", storageType: "fridge" },
-    { name: "Clams", type: "food", storageType: "fridge" },
-    { name: "Cockles", type: "food", storageType: "fridge" },
-    { name: "Crab (whole)", type: "food", storageType: "fridge" },
-    { name: "Crab meat", type: "food", storageType: "fridge" },
-    { name: "Lobster", type: "food", storageType: "fridge" },
-  
-    // =====================
-    // FROZEN FISH & SEAFOOD
+    // FROZEN FISH
     // =====================
     { name: "Frozen cod fillets", type: "food", storageType: "freezer" },
     { name: "Frozen haddock fillets", type: "food", storageType: "freezer" },
     { name: "Frozen pollock fillets", type: "food", storageType: "freezer" },
     { name: "Frozen salmon fillets", type: "food", storageType: "freezer" },
     { name: "Frozen tuna steaks", type: "food", storageType: "freezer" },
-    { name: "Frozen prawns", type: "food", storageType: "freezer" },
-    { name: "Frozen mixed seafood", type: "food", storageType: "freezer" },
     { name: "Fish fingers", type: "food", storageType: "freezer" },
     { name: "Breaded fish fillets", type: "food", storageType: "freezer" },
   
@@ -164,9 +153,17 @@ export const fishItems = [
     { name: "Mackerel (tinned)", type: "food", storageType: "pantry" },
     { name: "Anchovies", type: "food", storageType: "pantry" },
     { name: "Anchovies in oil", type: "food", storageType: "pantry" },
-    { name: "Tinned mussels", type: "food", storageType: "pantry" },
-    { name: "Tinned cockles", type: "food", storageType: "pantry" }
 ];
+
+export const fruitItems = [
+    { name: "Apples", type: "food", storageType: "fridge" },
+    { name: "Bananas", type: "food", storageType: "fridge" },
+    { name: "Oranges", type: "food", storageType: "fridge" },
+    { name: "Pears", type: "food", storageType: "fridge" },
+    { name: "Plums", type: "food", storageType: "fridge" },
+    { name: "Pineapples", type: "food", storageType: "fridge" },
+    { name: "Grapes", type: "food", storageType: "fridge" },
+]
   
 export const vegItems = [
     // =====================
@@ -192,6 +189,7 @@ export const vegItems = [
     { name: "Garlic", type: "food", storageType: "pantry" },
     { name: "Spring onions", type: "food", storageType: "fridge" },
     { name: "Leeks", type: "food", storageType: "fridge" },
+    { name: "Celery", type: "food", storageType: "fridge" },
   
     // =====================
     // LEAFY GREENS
@@ -208,6 +206,7 @@ export const vegItems = [
     { name: "White Cabbage", type: "food", storageType: "fridge" },
     { name: "Red Cabbage", type: "food", storageType: "fridge" },
     { name: "Savoy cabbage", type: "food", storageType: "fridge" },
+    { name: "Pak choi", type: "food", storageType: "fridge" },
   
     // =====================
     // CRUCIFEROUS
@@ -278,7 +277,7 @@ export const vegItems = [
     // =====================
     { name: "Tinned tomatoes", type: "food", storageType: "pantry" },
     { name: "Chopped tomatoes", type: "food", storageType: "pantry" },
-    { name: "Tinned Plum tomatoes ", type: "food", storageType: "pantry" },
+    { name: "Tinned plum tomatoes", type: "food", storageType: "pantry" },
     { name: "Tinned Sweetcorn", type: "food", storageType: "pantry" },
     { name: "Tinned peas", type: "food", storageType: "pantry" },
     { name: "Tinned carrots", type: "food", storageType: "pantry" }
@@ -294,11 +293,19 @@ export const dairyItems = [
     { name: "Sour cream", type: "food", storageType: "fridge" },
     { name: "Ricotta", type: "food", storageType: "fridge" },
     { name: "Cottage cheese", type: "food", storageType: "fridge" },
+    { name: "Greek yogurt", type: "food", storageType: "fridge" },
+
 ];
 
 export const seasoningsItems = [
     { name: "Salt", type: "food", storageType: "pantry" },
+    { name: "Sea salt", type: "food", storageType: "pantry" },
+    { name: "Seasoned salt", type: "food", storageType: "pantry" },
+    { name: "Fine salt", type: "food", storageType: "pantry" },
+    { name: "Kosher salt", type: "food", storageType: "pantry" },
     { name: "Pepper", type: "food", storageType: "pantry" },
+    { name: "Black pepper", type: "food", storageType: "pantry" },
+    { name: "White pepper", type: "food", storageType: "pantry" },
     { name: "Garlic salt", type: "food", storageType: "pantry" },
     { name: "Garlic powder", type: "food", storageType: "pantry" },
     { name: "Onion powder", type: "food", storageType: "pantry" },
@@ -312,9 +319,15 @@ export const sweetenersItems = [
 ]
 
 export const spicesItems = [
-    { name: "Cumin", type: "food", storageType: "pantry" },
-    { name: "Paprika", type: "food", storageType: "pantry" },
-    { name: "Cumin", type: "food", storageType: "pantry" },
+    { name: "Turmeric", type: "food", storageType: "pantry" },
+    { name: "Cinnamon", type: "food", storageType: "pantry" },
+    { name: "Nutmeg", type: "food", storageType: "pantry" },
+    { name: "Ginger (ground)", type: "food", storageType: "pantry" },
+    { name: "Smoked paprika", type: "food", storageType: "pantry" },
+    { name: "Cayenne pepper", type: "food", storageType: "pantry" },
+    { name: "Chili powder", type: "food", storageType: "pantry" },
+    { name: "Chili flakes", type: "food", storageType: "pantry" },
+    { name: "Chili paste", type: "food", storageType: "pantry" },
 ]
 
 export const herbsItems = [
@@ -325,6 +338,8 @@ export const herbsItems = [
     { name: "Basil", type: "food", storageType: "pantry" },
     { name: "Mint", type: "food", storageType: "pantry" },
     { name: "Coriander", type: "food", storageType: "pantry" },
+    { name: "Dill", type: "food", storageType: "pantry" },
+    { name: "Chives", type: "food", storageType: "pantry" },
 ]
 
 export const oilsItems = [
@@ -341,51 +356,248 @@ export const oilsItems = [
 ]
 
 export const fatsItems = [
-    { name: "Butter", type: "food", storageType: "fridge" },
-    { name: "Cream", type: "food", storageType: "fridge" },
+    { name: "Lard", type: "food", storageType: "fridge" },
+    { name: "Ghee", type: "food", storageType: "pantry" },
+    { name: "Margarine", type: "food", storageType: "fridge" },
 ]
 
 export const acidsItems = [
-    { name: "White wine vinegar", storageType: "pantry" },
-    { name: "Red wine vinegar", storageType: "pantry" },
-    { name: "Apple cider vinegar", storageType: "pantry" },
-    { name: "Rice vinegar", storageType: "pantry" },
-    { name: "Balsamic vinegar", storageType: "pantry" },
-    { name: "Lemon juice", storageType: "fridge" },
-    { name: "Lime juice", storageType: "fridge" },
+    { name: "White wine vinegar", type: "food", storageType: "pantry" },
+    { name: "Red wine vinegar", type: "food", storageType: "pantry" },
+    { name: "Apple cider vinegar", type: "food", storageType: "pantry" },
+    { name: "Rice vinegar", type: "food", storageType: "pantry" },
+    { name: "Balsamic vinegar", type: "food", storageType: "pantry" },
+    { name: "Lemon juice", type: "food", storageType: "fridge" },
+    { name: "Lemon Zest", type: "food", storageType: "fridge" },
+    { name: "Lime juice", type: "food", storageType: "fridge" },
 ]
 
 export const cookingSaucesItems = [
-    { name: "Soy sauce", storageType: "pantry" },
-    { name: "Fish sauce", storageType: "pantry" },
-    { name: "Oyster sauce", storageType: "pantry" },
-    { name: "Curry paste", storageType: "fridge" },
-    { name: "Tomato paste", storageType: "pantry" },
-    { name: "Passata", storageType: "pantry" },
-    { name: "Tomato sauce", storageType: "pantry" },
-    { name: "Tomato puree", storageType: "pantry" },
-    { name: "Tomato ketchup", storageType: "pantry" },
-    { name: "Barbecue sauce", storageType: "pantry" },
-    { name: "BBQ sauce", storageType: "pantry" },
-    { name: "Hoisin sauce", storageType: "pantry" },
-    { name: "Teriyaki sauce", storageType: "pantry" },
+    { name: "Soy sauce", type: "food", storageType: "pantry" },
+    { name: "Fish sauce", type: "food", storageType: "pantry" },
+    { name: "Oyster sauce", type: "food", storageType: "pantry" },
+    { name: "Curry paste", type: "food", storageType: "fridge" },
+    { name: "Tomato paste", type: "food", storageType: "pantry" },
+    { name: "Passata", type: "food", storageType: "pantry" },
+    { name: "Tomato sauce", type: "food", storageType: "pantry" },
+    { name: "Tomato puree", type: "food", storageType: "pantry" },
+    { name: "Tomato ketchup", type: "food", storageType: "pantry" },
+    { name: "Barbecue sauce", type: "food", storageType: "pantry" },
+    { name: "BBQ sauce", type: "food", storageType: "pantry" },
+    { name: "Hoisin sauce", type: "food", storageType: "pantry" },
+    { name: "Teriyaki sauce", type: "food", storageType: "pantry" },
+    { name: "Sriracha", type: "food", storageType: "pantry" },
 ]  
 
 export const stockItems = [
-    { name: "Chicken stock", storageType: "pantry" },
-    { name: "Beef stock", storageType: "pantry" },
-    { name: "Vegetable stock", storageType: "pantry" },
-    { name: "Stock cubes", storageType: "pantry" },
+    { name: "Chicken broth", type: "food", storageType: "pantry" },
+    { name: "Chicken stock", type: "food", storageType: "pantry" },
+    { name: "Beef broth", type: "food", storageType: "pantry" },
+    { name: "Beef stock", type: "food", storageType: "pantry" },
+    { name: "Vegetable broth", type: "food", storageType: "pantry" },
+    { name: "Vegetable stock", type: "food", storageType: "pantry" },
+    { name: "Stock cubes", type: "food", storageType: "pantry" },
 ]
   
 export const grainsItems = [
-    { name: "brown Rice", storageType: "pantry" },
-    { name: "Basmati rice", storageType: "pantry" },
-    { name: "White rice", storageType: "pantry" },
-    { name: "Pasta", storageType: "pantry" },
-    { name: "Noodles", storageType: "pantry" },
-    { name: "Couscous", storageType: "pantry" },
-    { name: "Quinoa", storageType: "pantry" },
-    { name: "Bread", storageType: "pantry" },
-    { name: "Wraps", storageType: "pantry" },
-  ]  
+    { name: "Brown rice", type: "food", storageType: "pantry" },
+    { name: "Basmati rice", type: "food", storageType: "pantry" },
+    { name: "White rice", type: "food", storageType: "pantry" },
+    { name: "Pasta", type: "food", storageType: "pantry" },
+    { name: "Noodles", type: "food", storageType: "pantry" },
+    { name: "Couscous", type: "food", storageType: "pantry" },
+    { name: "Quinoa", type: "food", storageType: "pantry" },
+    { name: "Bread", type: "food", storageType: "pantry" },
+    { name: "Wraps", type: "food", storageType: "pantry" },
+]  
+
+export const condimentsItems = [
+    { name: "Mayonnaise", type: "condiment", storageType: "fridge" },
+    { name: "Mustard", type: "condiment", storageType: "pantry" },
+    { name: "Dijon mustard", type: "condiment", storageType: "pantry" },
+    { name: "Yellow mustard", type: "condiment", storageType: "pantry" },
+    { name: "Ketchup", type: "condiment", storageType: "pantry" },
+    { name: "Relish", type: "condiment", storageType: "pantry" },
+    { name: "Pickles", type: "condiment", storageType: "pantry" },
+    { name: "Chutney", type: "condiment", storageType: "pantry" },
+]
+
+export const seafoodItems = [
+    // =====================
+    // FRESH SHELLFISH & SEAFOOD
+    // =====================
+    { name: "Raw prawns", type: "food", storageType: "fridge" },
+    { name: "Cooked prawns", type: "food", storageType: "fridge" },
+    { name: "King prawns", type: "food", storageType: "fridge" },
+    { name: "Langoustines", type: "food", storageType: "fridge" },
+    { name: "Scallops", type: "food", storageType: "fridge" },
+    { name: "Mussels", type: "food", storageType: "fridge" },
+    { name: "Clams", type: "food", storageType: "fridge" },
+    { name: "Cockles", type: "food", storageType: "fridge" },
+    { name: "Crab (whole)", type: "food", storageType: "fridge" },
+    { name: "Crab meat", type: "food", storageType: "fridge" },
+    { name: "Lobster", type: "food", storageType: "fridge" },
+    { name: "Squid", type: "food", storageType: "fridge" },
+    { name: "Octopus", type: "food", storageType: "fridge" },
+
+    // =====================
+    // FROZEN SEAFOOD
+    // =====================
+    { name: "Frozen prawns", type: "food", storageType: "freezer" },
+    { name: "Frozen mixed seafood", type: "food", storageType: "freezer" },
+
+    // =====================
+    // TINNED SEAFOOD
+    // =====================
+    { name: "Tinned mussels", type: "food", storageType: "pantry" },
+    { name: "Tinned cockles", type: "food", storageType: "pantry" },
+]
+
+export const legumesItems = [
+    // =====================
+    // DRIED
+    // =====================
+    { name: "Red lentils", type: "food", storageType: "pantry" },
+    { name: "Green lentils", type: "food", storageType: "pantry" },
+    { name: "Puy lentils", type: "food", storageType: "pantry" },
+    { name: "Dried chickpeas", type: "food", storageType: "pantry" },
+    { name: "Dried kidney beans", type: "food", storageType: "pantry" },
+    { name: "Dried black beans", type: "food", storageType: "pantry" },
+
+    // =====================
+    // TINNED
+    // =====================
+    { name: "Tinned chickpeas", type: "food", storageType: "pantry" },
+    { name: "Tinned kidney beans", type: "food", storageType: "pantry" },
+    { name: "Tinned black beans", type: "food", storageType: "pantry" },
+    { name: "Tinned butter beans", type: "food", storageType: "pantry" },
+    { name: "Tinned cannellini beans", type: "food", storageType: "pantry" },
+    { name: "Tinned borlotti beans", type: "food", storageType: "pantry" },
+    { name: "Tinned mixed beans", type: "food", storageType: "pantry" },
+    { name: "Tinned lentils", type: "food", storageType: "pantry" },
+    { name: "Baked beans", type: "food", storageType: "pantry" },
+]
+
+export const nutsAndSeedsItems = [
+    // =====================
+    // NUTS
+    // =====================
+    { name: "Almonds", type: "food", storageType: "pantry" },
+    { name: "Flaked almonds", type: "food", storageType: "pantry" },
+    { name: "Ground almonds", type: "food", storageType: "pantry" },
+    { name: "Walnuts", type: "food", storageType: "pantry" },
+    { name: "Cashews", type: "food", storageType: "pantry" },
+    { name: "Peanuts", type: "food", storageType: "pantry" },
+    { name: "Pecans", type: "food", storageType: "pantry" },
+    { name: "Pistachios", type: "food", storageType: "pantry" },
+    { name: "Hazelnuts", type: "food", storageType: "pantry" },
+    { name: "Pine nuts", type: "food", storageType: "pantry" },
+    { name: "Macadamia nuts", type: "food", storageType: "pantry" },
+    { name: "Brazil nuts", type: "food", storageType: "pantry" },
+    { name: "Mixed nuts", type: "food", storageType: "pantry" },
+
+    // =====================
+    // SEEDS
+    // =====================
+    { name: "Sesame seeds", type: "food", storageType: "pantry" },
+    { name: "Sunflower seeds", type: "food", storageType: "pantry" },
+    { name: "Pumpkin seeds", type: "food", storageType: "pantry" },
+    { name: "Chia seeds", type: "food", storageType: "pantry" },
+    { name: "Flaxseeds", type: "food", storageType: "pantry" },
+    { name: "Poppy seeds", type: "food", storageType: "pantry" },
+
+    // =====================
+    // NUT BUTTERS
+    // =====================
+    { name: "Peanut butter", type: "food", storageType: "pantry" },
+    { name: "Almond butter", type: "food", storageType: "pantry" },
+    { name: "Tahini", type: "food", storageType: "pantry" },
+]
+
+export const bakingItems = [
+    { name: "Plain flour", type: "food", storageType: "pantry" },
+    { name: "Self-raising flour", type: "food", storageType: "pantry" },
+    { name: "Strong bread flour", type: "food", storageType: "pantry" },
+    { name: "Cornflour", type: "food", storageType: "pantry" },
+    { name: "Caster sugar", type: "food", storageType: "pantry" },
+    { name: "Granulated sugar", type: "food", storageType: "pantry" },
+    { name: "Icing sugar", type: "food", storageType: "pantry" },
+    { name: "Demerara sugar", type: "food", storageType: "pantry" },
+    { name: "Brown sugar", type: "food", storageType: "pantry" },
+    { name: "Baking powder", type: "food", storageType: "pantry" },
+    { name: "Bicarbonate of soda", type: "food", storageType: "pantry" },
+    { name: "Yeast", type: "food", storageType: "pantry" },
+    { name: "Vanilla extract", type: "food", storageType: "pantry" },
+    { name: "Cocoa powder", type: "food", storageType: "pantry" },
+    { name: "Dark chocolate", type: "food", storageType: "pantry" },
+    { name: "Milk chocolate", type: "food", storageType: "pantry" },
+    { name: "Golden syrup", type: "food", storageType: "pantry" },
+    { name: "Treacle", type: "food", storageType: "pantry" },
+    { name: "Desiccated coconut", type: "food", storageType: "pantry" },
+]
+
+export const cannedAndPreservedItems = [
+    { name: "Dill pickles", type: "food", storageType: "fridge" },
+    { name: "Pickled onions", type: "food", storageType: "pantry" },
+    { name: "Pickled beetroot", type: "food", storageType: "pantry" },
+    { name: "Pickled gherkins", type: "food", storageType: "pantry" },
+    { name: "Capers", type: "food", storageType: "pantry" },
+    { name: "Sun-dried tomatoes", type: "food", storageType: "pantry" },
+    { name: "Olives", type: "food", storageType: "pantry" },
+    { name: "Coconut milk", type: "food", storageType: "pantry" },
+    { name: "Coconut cream", type: "food", storageType: "pantry" },
+    { name: "Tinned fruit cocktail", type: "food", storageType: "pantry" },
+    { name: "Tinned peaches", type: "food", storageType: "pantry" },
+    { name: "Tinned pineapple", type: "food", storageType: "pantry" },
+]
+
+/**
+ * Maps each ingredient array to the category it belongs to.
+ * Category names MUST match the `name` field in prisma/seed/data/categories.ts.
+*/
+
+export type AllowedIngredientCategory = 
+"Meat" |
+"Fish" | 
+"Seafood" |
+"Fruits" | 
+"Vegetables" | 
+"Dairy" | 
+"Seasonings" | 
+"Sweeteners" | 
+"Herbs & Spices" | 
+"Oils & Fats" | 
+"Sauces" | 
+"Grains" |
+"Legumes" |
+"Nuts & Seeds" |
+"Baking" |
+"Canned & Preserved" 
+
+export type Ingredient = {
+    name: string;
+    type: IngredientType;
+    storageType: StorageType;
+}
+
+export const ingredientsByCategory: { categoryName: AllowedIngredientCategory, items: typeof meatItems } [] = [
+    { categoryName: "Meat", items: meatItems },
+    { categoryName: "Fish", items: fishItems },
+    { categoryName: "Seafood", items: seafoodItems },
+    { categoryName: "Fruits", items: fruitItems },
+    { categoryName: "Vegetables", items: vegItems },
+    { categoryName: "Dairy", items: dairyItems },
+    { categoryName: "Grains", items: grainsItems },
+    { categoryName: "Legumes", items: legumesItems },
+    { categoryName: "Nuts & Seeds", items: nutsAndSeedsItems },
+    { categoryName: "Seasonings", items: seasoningsItems },
+    { categoryName: "Sweeteners", items: sweetenersItems },
+    { categoryName: "Herbs & Spices", items: [...spicesItems, ...herbsItems] },
+    { categoryName: "Oils & Fats", items: [...oilsItems, ...fatsItems] },
+    { categoryName: "Sauces", items: [...acidsItems, ...cookingSaucesItems, ...stockItems, ...condimentsItems] },
+    { categoryName: "Baking", items: bakingItems },
+    { categoryName: "Canned & Preserved", items: cannedAndPreservedItems },
+];
+
+/** Flat list of every ingredient (no category info). */
+export const allItems = ingredientsByCategory.flatMap((g) => g.items);

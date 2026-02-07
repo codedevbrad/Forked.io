@@ -15,6 +15,7 @@ enum StorageType {
   freezer
 }
 
+
 enum IngredientType {
   food
   drink
@@ -44,7 +45,6 @@ model StoreLink {
 }
 
 
-
 model Category {
   id String @id @default(cuid())
   name String @unique
@@ -52,6 +52,7 @@ model Category {
   icon String? // Optional icon identifier (e.g., "meat", "fish", "veg")
   
   ingredients ShopIngredient[]
+  customUserIngredients CustomUserIngredient[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

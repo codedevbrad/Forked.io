@@ -19,11 +19,17 @@ type Category = {
   icon?: string | null;
 };
 
-/** Type/category come from linked ShopIngredient (one-to-one) */
+/** Type/category come from linked ShopIngredient or CustomUserIngredient */
 type IngredientData = {
   id: string;
   name: string;
   shopIngredient?: {
+    type: IngredientType;
+    storageType: StorageType | null;
+    category: Category | null;
+  } | null;
+  customUserIngredient?: {
+    name: string;
     type: IngredientType;
     storageType: StorageType | null;
     category: Category | null;
@@ -40,18 +46,27 @@ type IngredientTitleWithPillsProps = {
 export function IngredientInputDisplay({ ingredient, className }: IngredientTitleWithPillsProps) {
   return (
     <div className={cn("space-y-2", className)}>
-      <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient as Parameters<typeof getIngredientDisplayName>[0])}</h3>
+      <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient)}</h3>
     </div>
   );
 } 
 
-function getShop(ingredient: IngredientData) {
-  return ingredient.shopIngredient ?? undefined;
+/** Returns the type/storageType/category source — ShopIngredient takes priority, falls back to CustomUserIngredient. */
+function getIngredientMeta(ingredient: IngredientData) {
+  if (ingredient.shopIngredient) return ingredient.shopIngredient;
+  if (ingredient.customUserIngredient) {
+    return {
+      type: ingredient.customUserIngredient.type,
+      storageType: ingredient.customUserIngredient.storageType,
+      category: ingredient.customUserIngredient.category,
+    };
+  }
+  return undefined;
 }
 
-/** True when ingredient has no linked ShopIngredient (name stored in customIngredient). */
-function isCustomIngredient(ingredient: IngredientData & { customIngredient?: unknown }) {
-  return !ingredient.shopIngredient;
+/** True when ingredient is linked to a CustomUserIngredient (not a ShopIngredient). */
+function isCustomIngredient(ingredient: IngredientData) {
+  return !ingredient.shopIngredient && !!ingredient.customUserIngredient;
 }
 
 function CustomPill() {
@@ -80,43 +95,43 @@ export function IngredientTitleWithPills({
   ingredient,
   className,
 }: IngredientTitleWithPillsProps) {
-  const shop = getShop(ingredient);
-  const isCustom = isCustomIngredient(ingredient as IngredientData & { customIngredient?: unknown });
+  const meta = getIngredientMeta(ingredient);
+  const isCustom = isCustomIngredient(ingredient);
   return (
     <div className={cn("space-y-2", className)}>
-      <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient as Parameters<typeof getIngredientDisplayName>[0])}</h3>
+      <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient)}</h3>
       <div className="flex flex-wrap gap-1.5">
-        {/* Custom pill (no linked ShopIngredient) */}
+        {/* Custom pill (linked to CustomUserIngredient) */}
         {isCustom && <CustomPill />}
-        {/* Type Pill (from ShopIngredient) */}
-        {shop?.type && (
+        {/* Type Pill */}
+        {meta?.type && (
           <span
             className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20"
           >
-            {shop.type}
+            {meta.type}
           </span>
         )}
 
-        {/* Storage Type Pill (from ShopIngredient) */}
-        {shop?.storageType && (
+        {/* Storage Type Pill */}
+        {meta?.storageType && (
           <span
             className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
           >
-            {shop.storageType}
+            {meta.storageType}
           </span>
         )}
 
-        {/* Category Pill (from ShopIngredient) */}
-        {shop?.category && (
+        {/* Category Pill */}
+        {meta?.category && (
           <span
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium"
             style={{
-              backgroundColor: `${shop.category.color}20`,
-              color: shop.category.color,
-              border: `1px solid ${shop.category.color}40`,
+              backgroundColor: `${meta.category.color}20`,
+              color: meta.category.color,
+              border: `1px solid ${meta.category.color}40`,
             }}
           >
-            {shop.category.name}
+            {meta.category.name}
           </span>
         )}
 
@@ -158,9 +173,9 @@ export function IngredientCard({
   actions,
   showPills = true,
 }: IngredientCardProps) {
-  const shop = getShop(ingredient as IngredientData);
-  const hasFullData = Boolean(shop?.type);
-  const isCustom = isCustomIngredient(ingredient as IngredientData & { customIngredient?: unknown });
+  const meta = getIngredientMeta(ingredient as IngredientData);
+  const hasFullData = Boolean(meta?.type);
+  const isCustom = isCustomIngredient(ingredient as IngredientData);
 
   return (
     <div className={cn("p-3 border rounded-lg space-y-2", className)}>
@@ -168,7 +183,7 @@ export function IngredientCard({
         <IngredientTitleWithPills ingredient={ingredient as IngredientData} />
       ) : (
         <div className="space-y-2">
-          <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient as Parameters<typeof getIngredientDisplayName>[0])}</h3>
+          <h3 className="font-medium text-base">{getIngredientDisplayName(ingredient as IngredientData)}</h3>
           {showPills && isCustom && (
             <div className="flex flex-wrap gap-1.5">
               <CustomPill />

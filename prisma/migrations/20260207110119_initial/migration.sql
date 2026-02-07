@@ -11,6 +11,9 @@ CREATE TYPE "StorageType" AS ENUM ('pantry', 'fridge', 'freezer');
 CREATE TYPE "IngredientType" AS ENUM ('food', 'drink', 'condiment', 'cleaning', 'household');
 
 -- CreateEnum
+CREATE TYPE "jobType" AS ENUM ('FIND_PRODUCTS', 'DISCOVER_VIDEOS', 'DISCOVER_WEBSITES');
+
+-- CreateEnum
 CREATE TYPE "Retailer" AS ENUM ('TESCO', 'MORRISONS', 'SAINSBURYS', 'ASDA');
 
 -- CreateTable
@@ -72,6 +75,21 @@ CREATE TABLE "Category" (
 );
 
 -- CreateTable
+CREATE TABLE "BackgroundJob" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "progress" INTEGER NOT NULL,
+    "startedAt" TIMESTAMP(3) NOT NULL,
+    "completedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "BackgroundJob_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "ShopProduct" (
     "id" TEXT NOT NULL,
     "retailer" "Retailer" NOT NULL,
@@ -99,6 +117,20 @@ CREATE TABLE "ShopIngredient" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "ShopIngredient_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CustomUserIngredient" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "type" "IngredientType" NOT NULL,
+    "storageType" "StorageType",
+    "categoryId" TEXT,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "CustomUserIngredient_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -204,7 +236,7 @@ CREATE TABLE "Ingredient" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "shopIngredientId" TEXT,
-    "customIngredient" JSONB NOT NULL,
+    "customUserIngredientId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -267,6 +299,12 @@ ALTER TABLE "ShopProduct" ADD CONSTRAINT "ShopProduct_shopIngredientId_fkey" FOR
 ALTER TABLE "ShopIngredient" ADD CONSTRAINT "ShopIngredient_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "CustomUserIngredient" ADD CONSTRAINT "CustomUserIngredient_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CustomUserIngredient" ADD CONSTRAINT "CustomUserIngredient_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Recipe" ADD CONSTRAINT "Recipe_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -307,6 +345,9 @@ ALTER TABLE "Ingredient" ADD CONSTRAINT "Ingredient_userId_fkey" FOREIGN KEY ("u
 
 -- AddForeignKey
 ALTER TABLE "Ingredient" ADD CONSTRAINT "Ingredient_shopIngredientId_fkey" FOREIGN KEY ("shopIngredientId") REFERENCES "ShopIngredient"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Ingredient" ADD CONSTRAINT "Ingredient_customUserIngredientId_fkey" FOREIGN KEY ("customUserIngredientId") REFERENCES "CustomUserIngredient"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_RecipeToTag" ADD CONSTRAINT "_RecipeToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;

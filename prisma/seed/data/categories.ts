@@ -1,4 +1,6 @@
-export const categories = [
+import { AllowedIngredientCategory } from "./ingredients";
+
+export const categories: { name: AllowedIngredientCategory, color: string, icon: string } [] = [
     {
       name: "Seasonings",
       color: "#059669", // Emerald
@@ -8,11 +10,6 @@ export const categories = [
       name: "Meat",
       color: "#dc2626", // Red
       icon: "meat",
-    },
-    {
-      name: "Poultry",
-      color: "#ea580c", // Orange-red
-      icon: "poultry",
     },
     {
       name: "Fish",
@@ -75,13 +72,13 @@ export const categories = [
       icon: "canned",
     },
     {
-      name: "Snacks",
-      color: "#ec4899", // Pink
-      icon: "snacks",
+      name: "Sweeteners",
+      color: "#b45309", // Dark amber
+      icon: "sweeteners",
     },
     {
-      name: "Chocolate",
-      color: "#92400e", // Brown
-      icon: "chocolate",
+      name: "Sauces",
+      color: "#e11d48", // Rose
+      icon: "sauces",
     }
   ];

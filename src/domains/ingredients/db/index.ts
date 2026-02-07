@@ -62,7 +62,6 @@ export async function createIngredientAction(
       data: {
         userId: session.user.id as string,
         shopIngredientId: shop.id,
-        customIngredient: {},
         tag: tagIds && tagIds.length > 0 ? {
           connect: tagIds.map(id => ({ id }))
         } : undefined,
@@ -76,6 +75,7 @@ export async function createIngredientAction(
         tag: true,
         storeLinks: true,
         shopIngredient: { include: { category: true } },
+        customUserIngredient: { include: { category: true } },
       },
     });
 
@@ -176,6 +176,7 @@ export async function getIngredientsAction() {
         tag: true,
         storeLinks: true,
         shopIngredient: { include: { category: true } },
+        customUserIngredient: { include: { category: true } },
       },
       orderBy: {
         shopIngredient: { name: "asc" },
@@ -213,6 +214,7 @@ export async function getIngredientAction(id: string) {
         tag: true,
         storeLinks: true,
         shopIngredient: { include: { category: true } },
+        customUserIngredient: { include: { category: true } },
       },
     });
 

@@ -19,7 +19,8 @@ type ImportStep = "idle" | "fetching" | "finding" | "creating" | "success" | "cr
 type SaveResult = {
   name: string;
   matchedIngredientNames: string[];
-  customIngredientNames: string[];
+  existingCustomIngredientNames: string[];
+  newCustomIngredientNames: string[];
 };
 
 export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
@@ -118,7 +119,8 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
       setSaveResult({
         name: result.data.name,
         matchedIngredientNames: result.data.matchedIngredientNames,
-        customIngredientNames: result.data.customIngredientNames,
+        existingCustomIngredientNames: result.data.existingCustomIngredientNames,
+        newCustomIngredientNames: result.data.newCustomIngredientNames,
       });
       setPreviewData(null);
       setSelectedImageUrl(null);
@@ -406,24 +408,59 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                 </p>
               </div>
               <div className="border-t pt-4 space-y-3">
-                <div>
-                  <h4 className="text-sm font-medium mb-1">Matched to your ingredients</h4>
+                {/* Shop ingredient matches */}
+                <div className="rounded-lg border border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-900/20 p-3">
+                  <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    Matched to catalogue
+                  </h4>
                   {saveResult.matchedIngredientNames.length > 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {saveResult.matchedIngredientNames.join(", ")}
-                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {saveResult.matchedIngredientNames.map((name) => (
+                        <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">None</p>
+                    <p className="text-xs text-muted-foreground">No catalogue matches found</p>
                   )}
                 </div>
-                {saveResult.customIngredientNames.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Added as custom (no match)</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {saveResult.customIngredientNames.join(", ")}
-                    </p>
+
+                {/* Matched to existing custom ingredients */}
+                {saveResult.existingCustomIngredientNames.length > 0 && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20 p-3">
+                    <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      Matched to your custom ingredients
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {saveResult.existingCustomIngredientNames.map((name) => (
+                        <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Brand new custom ingredients */}
+                {saveResult.newCustomIngredientNames.length > 0 && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/20 p-3">
+                    <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                      <Circle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      Created as new custom ingredients
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {saveResult.newCustomIngredientNames.map((name) => (
+                        <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <Button onClick={handleDone} className="w-full">
                   Done
                 </Button>

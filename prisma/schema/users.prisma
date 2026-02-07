@@ -8,6 +8,7 @@ model User {
 
   recipes Recipe[]
   ingredients Ingredient[]
+  customUserIngredients CustomUserIngredient[]
   stored Stored[]
   shoppingLists ShoppingList[]
   tags Tag[]
@@ -29,7 +30,8 @@ model Ingredient {
   shopIngredient   ShopIngredient? @relation(fields: [shopIngredientId], references: [id])
   shopIngredientId String?        @unique  // optional = ingredient can exist without a ShopIngredient;
 
-  customIngredient Json
+  customUserIngredient CustomUserIngredient? @relation(fields: [customUserIngredientId], references: [id])
+  customUserIngredientId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
