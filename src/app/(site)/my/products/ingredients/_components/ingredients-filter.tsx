@@ -9,11 +9,15 @@ import { IngredientType, StorageType } from "@prisma/client";
 import { X, Search, Filter } from "lucide-react";
 import { useTags } from "@/src/domains/tags/_contexts/useTags";
 
-/** Type/storageType from linked ShopIngredient (one-to-one) */
+/** Type/storageType/category from linked ShopIngredient (one-to-one) */
 type Ingredient = {
   id: string;
   name: string;
-  shopIngredient?: { type: string; storageType: string | null } | null;
+  shopIngredient?: {
+    type: string;
+    storageType: string | null;
+    category: { id: string; name: string; color: string; icon?: string | null } | null;
+  } | null;
   tag: Array<{ id: string; name: string; color: string }>;
 };
 
@@ -28,6 +32,19 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedStorageType, setSelectedStorageType] = useState<string>("all");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+
+  // Extract unique categories from ingredients
+  const categories = useMemo(() => {
+    const categoryMap = new Map<string, { id: string; name: string; color: string; icon?: string | null }>();
+    ingredients.forEach((ingredient) => {
+      const cat = ingredient.shopIngredient?.category;
+      if (cat && !categoryMap.has(cat.id)) {
+        categoryMap.set(cat.id, cat);
+      }
+    });
+    return Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [ingredients]);
 
   const filteredIngredients = useMemo(() => {
     let filtered = [...ingredients];
@@ -54,6 +71,14 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
       }
     }
 
+    // Category filter
+    if (selectedCategoryIds.length > 0) {
+      filtered = filtered.filter(ingredient => {
+        const catId = ingredient.shopIngredient?.category?.id;
+        return catId ? selectedCategoryIds.includes(catId) : false;
+      });
+    }
+
     // Tag filter
     if (selectedTagIds.length > 0) {
       filtered = filtered.filter(ingredient =>
@@ -64,7 +89,7 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
     }
 
     return filtered;
-  }, [ingredients, searchQuery, selectedType, selectedStorageType, selectedTagIds]);
+  }, [ingredients, searchQuery, selectedType, selectedStorageType, selectedCategoryIds, selectedTagIds]);
 
   // Update parent when filtered results change
   useEffect(() => {
@@ -79,14 +104,23 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
     );
   };
 
+  const handleCategoryToggle = (categoryId: string) => {
+    setSelectedCategoryIds(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
   const clearFilters = () => {
     setSearchQuery("");
     setSelectedType("all");
     setSelectedStorageType("all");
     setSelectedTagIds([]);
+    setSelectedCategoryIds([]);
   };
 
-  const hasActiveFilters = searchQuery || selectedType !== "all" || selectedStorageType !== "all" || selectedTagIds.length > 0;
+  const hasActiveFilters = searchQuery || selectedType !== "all" || selectedStorageType !== "all" || selectedTagIds.length > 0 || selectedCategoryIds.length > 0;
 
   return (
     <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
@@ -164,6 +198,48 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
           </div>
         </div>
       </div>
+
+      {/* Category Filters */}
+      {categories.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Categories</label>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => {
+              const isSelected = selectedCategoryIds.includes(category.id);
+              const count = ingredients.filter(
+                (ing) => ing.shopIngredient?.category?.id === category.id
+              ).length;
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => handleCategoryToggle(category.id)}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    isSelected
+                      ? "ring-2 ring-offset-2"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                  style={{
+                    backgroundColor: isSelected
+                      ? `${category.color}20`
+                      : `${category.color}10`,
+                    color: category.color,
+                    border: `1px solid ${category.color}40`,
+                    ringColor: category.color,
+                  }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: category.color }}
+                  />
+                  {category.name}
+                  <span className="text-xs opacity-70">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tag Filters */}
       {tags && tags.length > 0 && (

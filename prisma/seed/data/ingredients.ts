@@ -204,6 +204,7 @@ export const vegItems = [
     { name: "Kale", type: "food", storageType: "fridge" },
     { name: "Swiss chard", type: "food", storageType: "fridge" },
     { name: "White Cabbage", type: "food", storageType: "fridge" },
+    { name: "Chinese cabbage", type: "food", storageType: "fridge" },
     { name: "Red Cabbage", type: "food", storageType: "fridge" },
     { name: "Savoy cabbage", type: "food", storageType: "fridge" },
     { name: "Pak choi", type: "food", storageType: "fridge" },
