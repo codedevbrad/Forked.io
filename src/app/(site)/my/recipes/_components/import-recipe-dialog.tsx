@@ -4,23 +4,41 @@ import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/src/components/ui/dialog";
-import { previewRecipeFromUrlAction, savePreviewedRecipeAction } from "@/src/domains/recipes/db";
+import { previewRecipeFromUrlAction, savePreviewedRecipeAction, uploadRecipeImageAction, searchUnsplashImagesAction } from "@/src/domains/recipes/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
-import { Link2, Loader2, CheckCircle2, Circle } from "lucide-react";
-import type { ExtractedIngredient } from "@/src/services/openai";
+import { Link2, Loader2, CheckCircle2, Circle, ImageOff, Search } from "lucide-react";
+import type { ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
+import type { UnsplashPhoto } from "@/src/services/unsplash";
+import Image from "next/image";
+import { cn } from "@/src/lib/utils";
 
 type ImportRecipeDialogProps = {
   onSuccess?: () => void;
 };
 
-type ImportStep = "idle" | "fetching" | "finding" | "creating" | "success";
+type ImportStep = "idle" | "fetching" | "finding" | "creating" | "success" | "created";
+
+type SaveResult = {
+  name: string;
+  matchedIngredientNames: string[];
+  existingCustomIngredientNames: string[];
+  newCustomIngredientNames: string[];
+};
 
 export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [step, setStep] = useState<ImportStep>("idle");
-  const [previewData, setPreviewData] = useState<{ name: string; ingredients: ExtractedIngredient[] } | null>(null);
+  const [previewData, setPreviewData] = useState<{ name: string; ingredients: ExtractedIngredient[]; images: string[] } | null>(null);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
+  const [imageTab, setImageTab] = useState<"found" | "unsplash">("found");
+  const [unsplashPhotos, setUnsplashPhotos] = useState<UnsplashPhoto[]>([]);
+  const [unsplashLoading, setUnsplashLoading] = useState(false);
+  const [unsplashError, setUnsplashError] = useState("");
+  const [unsplashSearchQuery, setUnsplashSearchQuery] = useState("");
   const [isPending, startTransition] = useTransition();
   const { mutate } = useRecipes();
 
@@ -66,6 +84,15 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
         // Step 4: Success - show preview
         setPreviewData(previewResult.data!);
         setStep("success");
+
+        // Auto-switch to Unsplash tab if no scraped images found
+        const hasImages = previewResult.data!.images && previewResult.data!.images.length > 0;
+        if (!hasImages) {
+          setImageTab("unsplash");
+          handleSearchUnsplash(previewResult.data!.name);
+        } else {
+          setImageTab("found");
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An unexpected error occurred");
         setStep("idle");
@@ -73,14 +100,51 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
     });
   };
 
-  const handleAccept = () => {
+  const handleSearchUnsplash = async (query: string) => {
+    if (!query.trim()) return;
+    setUnsplashLoading(true);
+    setUnsplashError("");
+    setUnsplashSearchQuery(query.trim());
+
+    try {
+      const result = await searchUnsplashImagesAction(query.trim());
+      if (result.success && result.data) {
+        setUnsplashPhotos(result.data.photos);
+      } else {
+        setUnsplashError(result.error || "Failed to search Unsplash");
+      }
+    } catch {
+      setUnsplashError("Failed to search Unsplash images");
+    } finally {
+      setUnsplashLoading(false);
+    }
+  };
+
+  const handleAccept = async () => {
     if (!previewData) return;
 
     startTransition(async () => {
+      let finalImageUrl: string | undefined;
+
+      // If an image is selected, upload it to R2
+      if (selectedImageUrl) {
+        setUploadingImage(true);
+        const uploadResult = await uploadRecipeImageAction(selectedImageUrl);
+        setUploadingImage(false);
+
+        if (!uploadResult.success) {
+          setError(uploadResult.error);
+          return;
+        }
+
+        finalImageUrl = uploadResult.data?.url;
+      }
+
       const result = await savePreviewedRecipeAction(
         previewData.name,
         previewData.ingredients,
-        url.trim()
+        url.trim(),
+        finalImageUrl
       );
 
       if (!result.success) {
@@ -88,20 +152,38 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
         return;
       }
 
-      setUrl("");
+      setSaveResult({
+        name: result.data.name,
+        matchedIngredientNames: result.data.matchedIngredientNames,
+        existingCustomIngredientNames: result.data.existingCustomIngredientNames,
+        newCustomIngredientNames: result.data.newCustomIngredientNames,
+      });
       setPreviewData(null);
-      setStep("idle");
-      setOpen(false);
-      await mutate();
-      onSuccess?.();
+      setSelectedImageUrl(null);
+      setStep("created");
     });
+  };
+
+  const handleDone = () => {
+    setUrl("");
+    setSaveResult(null);
+    setStep("idle");
+    setOpen(false);
+    mutate();
+    onSuccess?.();
   };
 
   const handleCancel = () => {
     setUrl("");
     setPreviewData(null);
+    setSelectedImageUrl(null);
+    setSaveResult(null);
     setStep("idle");
     setError("");
+    setImageTab("found");
+    setUnsplashPhotos([]);
+    setUnsplashError("");
+    setUnsplashSearchQuery("");
     setOpen(false);
   };
 
@@ -111,7 +193,13 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
       setUrl("");
       setError("");
       setPreviewData(null);
+      setSelectedImageUrl(null);
+      setSaveResult(null);
       setStep("idle");
+      setImageTab("found");
+      setUnsplashPhotos([]);
+      setUnsplashError("");
+      setUnsplashSearchQuery("");
     }
   };
 
@@ -268,6 +356,222 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                 </div>
 
                 <div>
+                  <h3 className="text-lg font-semibold mb-2">Recipe Image</h3>
+
+                  {/* Tab buttons */}
+                  <div className="flex border-b mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setImageTab("found")}
+                      className={cn(
+                        "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                        imageTab === "found"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Found Images
+                      {previewData.images.length > 0 && (
+                        <span className="ml-1.5 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                          {previewData.images.length}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageTab("unsplash");
+                        if (unsplashPhotos.length === 0 && !unsplashLoading && !unsplashError) {
+                          handleSearchUnsplash(previewData.name);
+                        }
+                      }}
+                      className={cn(
+                        "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                        imageTab === "unsplash"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Unsplash
+                    </button>
+                  </div>
+
+                  {/* Found Images tab */}
+                  {imageTab === "found" && (
+                    <>
+                      {previewData.images.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                          {previewData.images.map((imgUrl, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => setSelectedImageUrl(imgUrl === selectedImageUrl ? null : imgUrl)}
+                              className={cn(
+                                "relative aspect-video rounded-lg overflow-hidden border-2 transition-all",
+                                selectedImageUrl === imgUrl
+                                  ? "border-primary ring-2 ring-primary ring-offset-2"
+                                  : "border-border hover:border-primary/50"
+                              )}
+                            >
+                              <Image
+                                src={imgUrl}
+                                alt={`Recipe image ${index + 1}`}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                              {selectedImageUrl === imgUrl && (
+                                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                  <CheckCircle2 className="w-8 h-8 text-primary" />
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                          <ImageOff className="w-10 h-10 mb-2 opacity-50" />
+                          <p className="text-sm font-medium">No images found on the recipe page</p>
+                          <p className="text-xs mt-1">
+                            Try the{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setImageTab("unsplash");
+                                if (unsplashPhotos.length === 0 && !unsplashLoading && !unsplashError) {
+                                  handleSearchUnsplash(previewData.name);
+                                }
+                              }}
+                              className="underline text-primary hover:text-primary/80"
+                            >
+                              Unsplash
+                            </button>{" "}
+                            tab to find an image
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Unsplash tab */}
+                  {imageTab === "unsplash" && (
+                    <div className="space-y-3">
+                      {/* Search bar */}
+                      <div className="flex gap-2">
+                        <Input
+                          type="text"
+                          value={unsplashSearchQuery || previewData.name}
+                          onChange={(e) => setUnsplashSearchQuery(e.target.value)}
+                          placeholder="Search Unsplash..."
+                          className="h-8 text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleSearchUnsplash(unsplashSearchQuery || previewData.name);
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSearchUnsplash(unsplashSearchQuery || previewData.name)}
+                          disabled={unsplashLoading}
+                          className="shrink-0"
+                        >
+                          {unsplashLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Search className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Results */}
+                      {unsplashLoading && unsplashPhotos.length === 0 ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : unsplashError ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                          <p className="text-sm">{unsplashError}</p>
+                        </div>
+                      ) : unsplashPhotos.length > 0 ? (
+                        <>
+                          <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                            {unsplashPhotos.map((photo) => (
+                              <button
+                                key={photo.id}
+                                type="button"
+                                onClick={() => setSelectedImageUrl(photo.url === selectedImageUrl ? null : photo.url)}
+                                className={cn(
+                                  "relative aspect-video rounded-lg overflow-hidden border-2 transition-all group",
+                                  selectedImageUrl === photo.url
+                                    ? "border-primary ring-2 ring-primary ring-offset-2"
+                                    : "border-border hover:border-primary/50"
+                                )}
+                              >
+                                <Image
+                                  src={photo.thumbUrl}
+                                  alt={photo.alt}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                                {selectedImageUrl === photo.url && (
+                                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                    <CheckCircle2 className="w-8 h-8 text-primary" />
+                                  </div>
+                                )}
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <p className="text-[10px] text-white truncate">
+                                    by{" "}
+                                    <a
+                                      href={`${photo.photographerUrl}?utm_source=forkedio&utm_medium=referral`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="underline"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {photo.photographer}
+                                    </a>
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            Photos from{" "}
+                            <a
+                              href="https://unsplash.com/?utm_source=forkedio&utm_medium=referral"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline"
+                            >
+                              Unsplash
+                            </a>
+                          </p>
+                        </>
+                      ) : !unsplashLoading ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                          <Search className="w-10 h-10 mb-2 opacity-50" />
+                          <p className="text-sm">No Unsplash results found</p>
+                          <p className="text-xs mt-1">Try a different search term</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {selectedImageUrl && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Selected image will be uploaded to your storage
+                    </p>
+                  )}
+                </div>
+
+                <div>
                   <h3 className="text-lg font-semibold mb-2">Ingredients Found</h3>
                   <ul className="space-y-1 bg-muted p-3 rounded max-h-48 overflow-y-auto">
                     {previewData.ingredients.map((ing, index) => (
@@ -287,13 +591,13 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                 <div className="flex gap-2 pt-2">
                   <Button 
                     onClick={handleAccept} 
-                    disabled={isPending}
+                    disabled={isPending || uploadingImage}
                     className="flex-1"
                   >
-                    {isPending ? (
+                    {isPending || uploadingImage ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
+                        {uploadingImage ? "Uploading image..." : "Saving..."}
                       </>
                     ) : (
                       "Accept"
@@ -309,6 +613,75 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                     No thanks
                   </Button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {step === "created" && saveResult && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Recipe created</h3>
+                <p className="text-sm text-muted-foreground">
+                  {saveResult.name} has been added to your recipes.
+                </p>
+              </div>
+              <div className="border-t pt-4 space-y-3">
+                {/* Shop ingredient matches */}
+                <div className="rounded-lg border border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-900/20 p-3">
+                  <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    Matched to catalogue
+                  </h4>
+                  {saveResult.matchedIngredientNames.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {saveResult.matchedIngredientNames.map((name) => (
+                        <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No catalogue matches found</p>
+                  )}
+                </div>
+
+                {/* Matched to existing custom ingredients */}
+                {saveResult.existingCustomIngredientNames.length > 0 && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20 p-3">
+                    <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      Matched to your custom ingredients
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {saveResult.existingCustomIngredientNames.map((name) => (
+                        <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Brand new custom ingredients */}
+                {saveResult.newCustomIngredientNames.length > 0 && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/20 p-3">
+                    <h4 className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                      <Circle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      Created as new custom ingredients
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {saveResult.newCustomIngredientNames.map((name) => (
+                        <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Button onClick={handleDone} className="w-full">
+                  Done
+                </Button>
               </div>
             </div>
           )}

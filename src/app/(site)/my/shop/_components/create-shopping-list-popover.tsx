@@ -21,7 +21,7 @@ export function CreateShoppingListPopover() {
           Create Shopping List
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-96 max-w-[calc(100%-2rem)] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-full max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Shopping List</DialogTitle>
           <DialogDescription>

@@ -5,7 +5,10 @@ import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
 import { Unit, IngredientType } from "@prisma/client";
 import { scrapeRecipeFromUrl } from "@/src/services/scraper";
-import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai";
+import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
+import { searchUnsplashPhotos, type UnsplashPhoto } from "@/src/services/unsplash";
+import { getNameVariants } from "@/src/lib/pluralise";
+import { uploadRecipeImageToR2 } from "@/src/lib/cloudflare";
 
 export type RecipeIngredientInput = {
   ingredientId: string;
@@ -200,7 +203,7 @@ export async function deleteRecipeAction(id: string): Promise<ActionResult> {
     
     // Handle Prisma-specific errors
     if (error && typeof error === 'object' && 'code' in error) {
-      const prismaError = error as { code: string; meta?: any };
+      const prismaError = error as { code: string; meta?: unknown };
       
       if (prismaError.code === 'P2025') {
         return { success: false, error: "Recipe not found or already deleted" };
@@ -238,7 +241,7 @@ export async function getRecipesAction() {
       include: {
         ingredients: {
           include: {
-            ingredient: true,
+            ingredient: { include: { shopIngredient: true, customUserIngredient: true } },
           },
         },
         tags: true,
@@ -271,7 +274,7 @@ export async function getRecipeAction(id: string) {
       include: {
         ingredients: {
           include: {
-            ingredient: true,
+            ingredient: { include: { shopIngredient: true, customUserIngredient: true } },
           },
         },
         tags: true,
@@ -290,7 +293,7 @@ export async function getRecipeAction(id: string) {
  */
 export async function previewRecipeFromUrlAction(
   url: string
-): Promise<ActionResult<{ name: string; ingredients: ExtractedIngredient[] }>> {
+): Promise<ActionResult<{ name: string; ingredients: ExtractedIngredient[]; images: string[] }>> {
   try {
     const session = await auth();
     
@@ -303,10 +306,10 @@ export async function previewRecipeFromUrlAction(
     }
 
     // Step 1: Scrape the recipe from URL
-    const scrapedContent = await scrapeRecipeFromUrl(url.trim());
+    const scrapedData = await scrapeRecipeFromUrl(url.trim());
 
     // Step 2: Extract recipe data using OpenAI
-    const extractedData = await extractRecipeData(scrapedContent);
+    const extractedData = await extractRecipeData(scrapedData.text, scrapedData.images);
 
     if (!extractedData.name || extractedData.ingredients.length === 0) {
       return { 
@@ -319,7 +322,8 @@ export async function previewRecipeFromUrlAction(
       success: true, 
       data: { 
         name: extractedData.name, 
-        ingredients: extractedData.ingredients 
+        ingredients: extractedData.ingredients,
+        images: extractedData.images || []
       } 
     };
   } catch (error) {
@@ -333,13 +337,104 @@ export async function previewRecipeFromUrlAction(
 }
 
 /**
- * Saves a previewed recipe to the database
+ * Uploads an image from a URL to Cloudflare R2
+ */
+export async function uploadRecipeImageAction(
+  imageUrl: string
+): Promise<ActionResult<{ url: string }>> {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!imageUrl || imageUrl.trim().length === 0) {
+      return { success: false, error: "Image URL is required" };
+    }
+
+    // Fetch the image from the URL
+    const imageResponse = await fetch(imageUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+
+    if (!imageResponse.ok) {
+      return { success: false, error: `Failed to fetch image: ${imageResponse.statusText}` };
+    }
+
+    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+    
+    // Determine content type from response or URL
+    const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+    
+    // Extract filename from URL or use default
+    const urlPath = new URL(imageUrl).pathname;
+    const fileName = urlPath.split("/").pop() || "recipe-image.jpg";
+    
+    // Upload to R2 - using recipes folder structure
+    const uploadResult = await uploadRecipeImageToR2(
+      imageBuffer,
+      fileName,
+      contentType
+    );
+
+    if (!uploadResult.success) {
+      return { success: false, error: uploadResult.error };
+    }
+
+    return { success: true, data: { url: uploadResult.url } };
+  } catch (error) {
+    console.error("Upload recipe image error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { 
+      success: false, 
+      error: `Failed to upload image: ${errorMessage}` 
+    };
+  }
+}
+
+/**
+ * Searches Unsplash for photos matching a query string
+ */
+export async function searchUnsplashImagesAction(
+  query: string
+): Promise<ActionResult<{ photos: UnsplashPhoto[] }>> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!query || query.trim().length === 0) {
+      return { success: false, error: "Search query is required" };
+    }
+
+    const photos = await searchUnsplashPhotos(query.trim());
+    return { success: true, data: { photos } };
+  } catch (error) {
+    console.error("Unsplash search error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return {
+      success: false,
+      error: `Failed to search Unsplash: ${errorMessage}`,
+    };
+  }
+}
+
+/**
+ * Saves a previewed recipe to the database.
+ * Matches scraped ingredients to existing ShopIngredient by name (case-insensitive).
+ * Unmatched names are linked to a CustomUserIngredient (find-or-create).
  */
 export async function savePreviewedRecipeAction(
   name: string,
   ingredients: ExtractedIngredient[],
-  originalUrl: string
-): Promise<ActionResult<{ id: string; name: string }>> {
+  originalUrl: string,
+  imageUrl?: string
+): Promise<ActionResult<{ id: string; name: string; matchedIngredientNames: string[]; existingCustomIngredientNames: string[]; newCustomIngredientNames: string[] }>> {
   try {
     const session = await auth();
     
@@ -355,44 +450,117 @@ export async function savePreviewedRecipeAction(
       return { success: false, error: "At least one ingredient is required" };
     }
 
-    // Step 3: Create or find ingredients and build recipe ingredient inputs
-    const recipeIngredients: RecipeIngredientInput[] = [];
+    const recipeIngredientsMap = new Map<string, RecipeIngredientInput>();
+    const matchedIngredientNames: string[] = [];
+    const existingCustomIngredientNames: string[] = [];
+    const newCustomIngredientNames: string[] = [];
     const userId = session.user.id as string;
 
+    // Pre-fetch user's existing CustomUserIngredients to avoid N+1 queries
+    const existingCustomUserIngredients = await prisma.customUserIngredient.findMany({
+      where: { userId },
+    });
+    // Snapshot the IDs that existed before this import so we can distinguish existing vs new
+    const preExistingCustomIds = new Set(existingCustomUserIngredients.map((c) => c.id));
+
     for (const extractedIng of ingredients) {
-      // Try to find existing ingredient
-      let ingredient = await prisma.ingredient.findUnique({
+      const trimmedName = extractedIng.name.trim();
+      const nameVariants = getNameVariants(trimmedName);
+
+      // Try to find existing ShopIngredient by name variants (singular/plural, case-insensitive)
+      const shopIngredient = await prisma.shopIngredient.findFirst({
         where: {
-          userId_name: {
-            userId,
-            name: extractedIng.name,
-          },
+          OR: nameVariants.map((variant) => ({
+            name: { equals: variant, mode: "insensitive" as const },
+          })),
         },
       });
 
-      // If not found, create it (default to "food" type)
-      if (!ingredient) {
-        ingredient = await prisma.ingredient.create({
-          data: {
-            name: extractedIng.name,
-            type: IngredientType.food,
-            userId,
-          },
+      let ingredient: { id: string };
+
+      if (shopIngredient) {
+        // Match found: find or create user's Ingredient for this ShopIngredient
+        let userIngredient = await prisma.ingredient.findFirst({
+          where: { userId, shopIngredientId: shopIngredient.id },
         });
+        if (!userIngredient) {
+          userIngredient = await prisma.ingredient.create({
+            data: {
+              userId,
+              shopIngredientId: shopIngredient.id,
+            },
+          });
+        }
+        ingredient = userIngredient;
+        if (!matchedIngredientNames.includes(shopIngredient.name)) {
+          matchedIngredientNames.push(shopIngredient.name);
+        }
+      } else {
+        // No ShopIngredient match — find or create a CustomUserIngredient
+        let customUserIng = existingCustomUserIngredients.find(
+          (c) => nameVariants.includes(c.name.toLowerCase())
+        );
+
+        const wasPreExisting = customUserIng ? preExistingCustomIds.has(customUserIng.id) : false;
+
+        if (!customUserIng) {
+          customUserIng = await prisma.customUserIngredient.create({
+            data: {
+              userId,
+              name: trimmedName,
+              type: IngredientType.food,
+            },
+          });
+          // Cache so later iterations in this loop can find it
+          existingCustomUserIngredients.push(customUserIng);
+        }
+
+        // Find or create user's Ingredient linked to this CustomUserIngredient
+        let userIngredient = await prisma.ingredient.findFirst({
+          where: { userId, customUserIngredientId: customUserIng.id },
+        });
+        if (!userIngredient) {
+          userIngredient = await prisma.ingredient.create({
+            data: {
+              userId,
+              customUserIngredientId: customUserIng.id,
+            },
+          });
+        }
+        ingredient = userIngredient;
+
+        if (wasPreExisting) {
+          if (!existingCustomIngredientNames.includes(trimmedName)) {
+            existingCustomIngredientNames.push(trimmedName);
+          }
+        } else {
+          if (!newCustomIngredientNames.includes(trimmedName)) {
+            newCustomIngredientNames.push(trimmedName);
+          }
+        }
       }
 
-      recipeIngredients.push({
-        ingredientId: ingredient.id,
-        quantity: extractedIng.quantity,
-        unit: extractedIng.unit,
-      });
+      const existing = recipeIngredientsMap.get(ingredient.id);
+      if (existing) {
+        if (existing.unit === extractedIng.unit) {
+          existing.quantity += extractedIng.quantity;
+        }
+      } else {
+        recipeIngredientsMap.set(ingredient.id, {
+          ingredientId: ingredient.id,
+          quantity: extractedIng.quantity,
+          unit: extractedIng.unit,
+        });
+      }
     }
 
-    // Step 4: Create the recipe
+    const recipeIngredients = Array.from(recipeIngredientsMap.values());
+
     const recipe = await prisma.recipe.create({
       data: {
         name: name.trim(),
         originalUrl: originalUrl.trim(),
+        image: imageUrl || "https://via.placeholder.com/150",
         userId,
         ingredients: {
           create: recipeIngredients.map((ing) => ({
@@ -404,7 +572,16 @@ export async function savePreviewedRecipeAction(
       },
     });
 
-    return { success: true, data: { id: recipe.id, name: recipe.name } };
+    return {
+      success: true,
+      data: {
+        id: recipe.id,
+        name: recipe.name,
+        matchedIngredientNames,
+        existingCustomIngredientNames,
+        newCustomIngredientNames,
+      },
+    };
   } catch (error) {
     console.error("Save previewed recipe error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -421,7 +598,7 @@ export async function savePreviewedRecipeAction(
  */
 export async function importRecipeFromUrlAction(
   url: string
-): Promise<ActionResult<{ id: string; name: string }>> {
+): Promise<ActionResult<{ id: string; name: string; matchedIngredientNames: string[]; customIngredientNames: string[] }>> {
   try {
     const session = await auth();
     
@@ -433,11 +610,8 @@ export async function importRecipeFromUrlAction(
       return { success: false, error: "URL is required" };
     }
 
-    // Step 1: Scrape the recipe from URL
-    const scrapedContent = await scrapeRecipeFromUrl(url.trim());
-
-    // Step 2: Extract recipe data using OpenAI
-    const extractedData = await extractRecipeData(scrapedContent);
+    const scrapedData = await scrapeRecipeFromUrl(url.trim());
+    const extractedData = await extractRecipeData(scrapedData.text, scrapedData.images);
 
     if (!extractedData.name || extractedData.ingredients.length === 0) {
       return { 
@@ -446,40 +620,98 @@ export async function importRecipeFromUrlAction(
       };
     }
 
-    // Step 3: Create or find ingredients and build recipe ingredient inputs
-    const recipeIngredients: RecipeIngredientInput[] = [];
+    const recipeIngredientsMap = new Map<string, RecipeIngredientInput>();
+    const matchedIngredientNames: string[] = [];
+    const customIngredientNames: string[] = [];
     const userId = session.user.id as string;
 
+    // Pre-fetch user's existing CustomUserIngredients to avoid N+1 queries
+    const existingCustomUserIngredients = await prisma.customUserIngredient.findMany({
+      where: { userId },
+    });
+
     for (const extractedIng of extractedData.ingredients) {
-      // Try to find existing ingredient
-      let ingredient = await prisma.ingredient.findUnique({
+      const trimmedName = extractedIng.name.trim();
+      const nameVariants = getNameVariants(trimmedName);
+
+      const shopIngredient = await prisma.shopIngredient.findFirst({
         where: {
-          userId_name: {
-            userId,
-            name: extractedIng.name,
-          },
+          OR: nameVariants.map((variant) => ({
+            name: { equals: variant, mode: "insensitive" as const },
+          })),
         },
       });
 
-      // If not found, create it (default to "food" type)
-      if (!ingredient) {
-        ingredient = await prisma.ingredient.create({
-          data: {
-            name: extractedIng.name,
-            type: IngredientType.food,
-            userId,
-          },
+      let ingredient: { id: string };
+
+      if (shopIngredient) {
+        let userIngredient = await prisma.ingredient.findFirst({
+          where: { userId, shopIngredientId: shopIngredient.id },
         });
+        if (!userIngredient) {
+          userIngredient = await prisma.ingredient.create({
+            data: {
+              userId,
+              shopIngredientId: shopIngredient.id,
+            },
+          });
+        }
+        ingredient = userIngredient;
+        if (!matchedIngredientNames.includes(shopIngredient.name)) {
+          matchedIngredientNames.push(shopIngredient.name);
+        }
+      } else {
+        // No ShopIngredient match — find or create a CustomUserIngredient
+        let customUserIng = existingCustomUserIngredients.find(
+          (c) => nameVariants.includes(c.name.toLowerCase())
+        );
+
+        if (!customUserIng) {
+          customUserIng = await prisma.customUserIngredient.create({
+            data: {
+              userId,
+              name: trimmedName,
+              type: IngredientType.food,
+            },
+          });
+          existingCustomUserIngredients.push(customUserIng);
+        }
+
+        // Find or create user's Ingredient linked to this CustomUserIngredient
+        let userIngredient = await prisma.ingredient.findFirst({
+          where: { userId, customUserIngredientId: customUserIng.id },
+        });
+        if (!userIngredient) {
+          userIngredient = await prisma.ingredient.create({
+            data: {
+              userId,
+              customUserIngredientId: customUserIng.id,
+            },
+          });
+        }
+        ingredient = userIngredient;
+
+        if (!customIngredientNames.includes(trimmedName)) {
+          customIngredientNames.push(trimmedName);
+        }
       }
 
-      recipeIngredients.push({
-        ingredientId: ingredient.id,
-        quantity: extractedIng.quantity,
-        unit: extractedIng.unit,
-      });
+      const existing = recipeIngredientsMap.get(ingredient.id);
+      if (existing) {
+        if (existing.unit === extractedIng.unit) {
+          existing.quantity += extractedIng.quantity;
+        }
+      } else {
+        recipeIngredientsMap.set(ingredient.id, {
+          ingredientId: ingredient.id,
+          quantity: extractedIng.quantity,
+          unit: extractedIng.unit,
+        });
+      }
     }
 
-    // Step 4: Create the recipe
+    const recipeIngredients = Array.from(recipeIngredientsMap.values());
+
     const recipe = await prisma.recipe.create({
       data: {
         name: extractedData.name,
@@ -495,7 +727,15 @@ export async function importRecipeFromUrlAction(
       },
     });
 
-    return { success: true, data: { id: recipe.id, name: recipe.name } };
+    return {
+      success: true,
+      data: {
+        id: recipe.id,
+        name: recipe.name,
+        matchedIngredientNames,
+        customIngredientNames,
+      },
+    };
   } catch (error) {
     console.error("Import recipe from URL error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

@@ -1,11 +1,13 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ShoppingListsList } from "./_components/shopping-lists-list";
-import { CreateShoppingListPopover } from "./_components/create-shopping-list-popover";
+import { Button } from "@/src/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default async function ShopPage() {
   const session = await auth();
-  
+
   if (!session?.user?.id) {
     redirect("/my/shop/what");
   }
@@ -20,7 +22,12 @@ export default async function ShopPage() {
               Create and manage your shopping lists. Add ingredients with quantities to track what you need to buy.
             </p>
           </div>
-          <CreateShoppingListPopover />
+          <Button asChild>
+            <Link href="/my/shop/create">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Shopping List
+            </Link>
+          </Button>
         </div>
 
         <div className="space-y-4">

@@ -89,9 +89,19 @@ export function BreadcrumbView() {
     }
     // Handle /my/shop
     else if (pathParts[1] === "shop") {
-      breadcrumbItems.push({
-        label: "Shopping Lists",
-      });
+      if (pathParts[2] === "create") {
+        breadcrumbItems.push({
+          label: "Shopping Lists",
+          href: "/my/shop",
+        });
+        breadcrumbItems.push({
+          label: "Create",
+        });
+      } else {
+        breadcrumbItems.push({
+          label: "Shopping Lists",
+        });
+      }
     }
     // Handle /my/stored
     else if (pathParts[1] === "stored") {

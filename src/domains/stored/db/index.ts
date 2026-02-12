@@ -147,7 +147,11 @@ export async function getStoredAction() {
       include: {
         ingredients: {
           include: {
-            ingredient: true,
+            ingredient: {
+              include: {
+                shopIngredient: { include: { category: true } },
+              },
+            },
           },
         },
       },
@@ -182,7 +186,7 @@ export async function getStoredLocationAction(id: string) {
             ingredient: {
               include: {
                 tag: true,
-                category: true,
+                shopIngredient: { include: { category: true } },
               },
             },
           },

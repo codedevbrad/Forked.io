@@ -119,7 +119,7 @@
   * {
     @apply border-border outline-ring/50;
   }
-  
+
   html {
     scroll-behavior: smooth;
     font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -128,7 +128,7 @@
     height: 100vh;
     position: fixed;
   }
-  
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -141,7 +141,7 @@
     height: 100vh;
     position: fixed;
   }
-  
+
   /* Monospace font for code, pre, etc. */
   code,
   pre,
@@ -149,119 +149,119 @@
   samp {
     font-family: var(--font-geist-mono), "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
   }
-  
+
   /* Selection styles */
   ::selection {
     @apply bg-primary/20 text-foreground;
   }
-  
+
   /* Focus visible styles */
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
   }
-  
+
   /* Scrollbar styles */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
-  
+
   ::-webkit-scrollbar-track {
     @apply bg-muted;
   }
-  
+
   ::-webkit-scrollbar-thumb {
     @apply bg-border rounded-full;
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/30;
   }
-  
+
   /* Typography improvements */
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
     font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.2;
   }
-  
+
   h1 {
     @apply text-4xl lg:text-5xl;
     font-weight: 700;
     letter-spacing: -0.02em;
   }
-  
+
   h2 {
     @apply text-3xl lg:text-4xl;
     font-weight: 600;
     letter-spacing: -0.01em;
   }
-  
+
   h3 {
     @apply text-2xl lg:text-3xl;
     font-weight: 600;
   }
-  
+
   h4 {
     @apply text-xl lg:text-2xl;
     font-weight: 600;
   }
-  
+
   h5 {
     @apply text-lg lg:text-xl;
     font-weight: 600;
   }
-  
+
   h6 {
     @apply text-base lg:text-lg;
     font-weight: 600;
   }
-  
+
   p {
     @apply leading-7;
   }
-  
+
   /* Font weight utilities */
   .font-light {
     font-weight: 300;
   }
-  
+
   .font-normal {
     font-weight: 400;
   }
-  
+
   .font-medium {
     font-weight: 500;
   }
-  
+
   .font-semibold {
     font-weight: 600;
   }
-  
+
   .font-bold {
     font-weight: 700;
   }
-  
+
   /* Link styles */
   a {
     @apply text-primary underline-offset-4 hover:underline;
   }
-  
+
   /* Code styles */
   code {
     @apply relative rounded bg-muted px-[0.3rem] py-[0.2rem] text-sm;
     font-family: var(--font-geist-mono), "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
   }
-  
+
   pre {
     @apply overflow-x-auto rounded-lg bg-muted p-4;
     font-family: var(--font-geist-mono), "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
   }
-  
+
   pre code {
     @apply bg-transparent p-0;
   }
-  
+
   /* Image styles */
   img {
     @apply max-w-full h-auto;

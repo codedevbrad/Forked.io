@@ -1,0 +1,37 @@
+
+model Recipe {
+  id String @id @default(cuid())
+  name String
+
+  originalUrl String?
+
+  tags Tag[]
+
+  image String @default("https://via.placeholder.com/150")
+
+  ingredients RecipeIngredient[]
+  shoppingLists ShoppingListRecipe[]
+  shoppingListIngredients ShoppingListIngredient[]
+
+  user User @relation(fields: [userId], references: [id])
+  userId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model RecipeIngredient {
+  id String @id @default(cuid())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId String
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredientId String
+
+  quantity Float
+  unit Unit
+
+  @@unique([recipeId, ingredientId])
+}
