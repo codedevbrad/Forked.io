@@ -11,7 +11,6 @@ model ShopProduct {
   retailer      Retailer
   productName   String     // "Finest Chicken Tikka Masala", "Oranges 6 Pack"
   url           String?
-  price         Int?  // optional, in pence/cents
   size          Int?  // optional, in grams/ml/etc
   unit          Unit?
   imageUrl      String?
@@ -20,6 +19,7 @@ model ShopProduct {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 }
+
 
 model ShopIngredient {
   id String @id @default(cuid())
@@ -33,24 +33,6 @@ model ShopIngredient {
 
   shopProducts ShopProduct[]
   shoppingListIngredients ShoppingListIngredient[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-
-model CustomUserIngredient {
-  id String @id @default(cuid())
-  name String
-  type IngredientType
-  storageType StorageType?
-  category Category? @relation(fields: [categoryId], references: [id])
-  categoryId String?
-  
-  user User @relation(fields: [userId], references: [id])
-  userId String
-
-  ingredients Ingredient[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

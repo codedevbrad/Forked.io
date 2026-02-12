@@ -15,6 +15,15 @@ export async function getProductsAction() {
 
     const products = await prisma.shopProduct.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        shopIngredient: {
+          select: {
+            id: true,
+            name: true,
+            category: { select: { id: true, name: true, color: true } },
+          },
+        },
+      },
     });
     return products;
   } catch (error) {

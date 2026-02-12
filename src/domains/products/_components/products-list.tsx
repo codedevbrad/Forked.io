@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { ProductModal } from "@/src/domains/products/_components/product-modal";
 import { deleteProductAction } from "@/src/domains/products/db";
 import Link from "next/link";
 import { useProducts } from "@/src/domains/products/_contexts/useProducts";
+import { useCategories } from "@/src/domains/categories/_contexts/useCategories";
 import { Retailer, Unit } from "@prisma/client";
-import { Pencil, Trash2, ExternalLink, ImageOff, Search } from "lucide-react";
+import { Pencil, Trash2, ExternalLink, ImageOff, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
+
+type CategoryInfo = { id: string; name: string; color: string };
 
 type ShopProduct = {
   id: string;
@@ -20,6 +23,11 @@ type ShopProduct = {
   size: number | null;
   unit: Unit | null;
   imageUrl: string | null;
+  shopIngredient: {
+    id: string;
+    name: string;
+    category: CategoryInfo | null;
+  } | null;
 };
 
 const RETAILER_LABELS: Record<Retailer, string> = {
@@ -36,9 +44,41 @@ type ProductsListProps = {
 
 export function ProductsList({ showHeaderActions = true }: ProductsListProps) {
   const { data: products, isLoading, error, mutate } = useProducts();
+  const { data: categories } = useCategories();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 12;
+
+  // Filter products by selected categories
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    const all = products as ShopProduct[];
+    if (selectedCategoryIds.length === 0) return all;
+    return all.filter((p) => {
+      const catId = p.shopIngredient?.category?.id;
+      return catId ? selectedCategoryIds.includes(catId) : false;
+    });
+  }, [products, selectedCategoryIds]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedProducts = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredProducts.slice(start, start + PAGE_SIZE);
+  }, [filteredProducts, safePage]);
+
+  const handleCategoryToggle = (categoryId: string) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
+    );
+    setCurrentPage(1);
+  };
 
   const handleDeleteClick = (id: string) => {
     setItemToDelete(id);
@@ -114,34 +154,102 @@ export function ProductsList({ showHeaderActions = true }: ProductsListProps) {
           <ProductModal mode="create" />
         </div>
       )}
-      <div className="space-y-2">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {(products as ShopProduct[]).map((product) => (
+
+      {/* Category filters */}
+      {categories && categories.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground mr-1">Category:</span>
+          {categories.map((category) => {
+            const isSelected = selectedCategoryIds.includes(category.id);
+            const count = (products as ShopProduct[]).filter(
+              (p) => p.shopIngredient?.category?.id === category.id
+            ).length;
+            return (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => handleCategoryToggle(category.id)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-medium transition-colors ${
+                  isSelected
+                    ? "ring-2 ring-offset-2"
+                    : "opacity-60 hover:opacity-100"
+                }`}
+                style={{
+                  backgroundColor: isSelected
+                    ? `${category.color}20`
+                    : `${category.color}10`,
+                  color: category.color,
+                  border: `1px solid ${category.color}40`,
+                  ringColor: category.color,
+                }}
+              >
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: category.color }}
+                />
+                {category.name}
+                <span className="text-xs opacity-70">({count})</span>
+              </button>
+            );
+          })}
+          {selectedCategoryIds.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedCategoryIds([])}
+              className="h-7 px-2 text-xs"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {selectedCategoryIds.length > 0 && (
+          filteredProducts.length === 0 ? (
+            <p className="text-muted-foreground">
+              No products match the selected {selectedCategoryIds.length === 1 ? "category" : "categories"}.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredProducts.length} of {(products as ShopProduct[]).length} products
+            </p>
+          )
+        )}
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          {pagedProducts.map((product) => (
             <div
               key={product.id}
-              className="group relative flex gap-3 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-muted/50"
+              className="group relative flex flex-col rounded-lg border bg-card shadow-sm transition-colors hover:bg-muted/50"
             >
-              <div className="flex items-center justify-center">
-                  <div className="flex h-30 w-30 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted flex-shrink-0 ">
-                    {product.imageUrl ? (
-                      <Image
-                        src={product.imageUrl}
-                        alt={product.productName}
-                        width={64}
-                        height={64}
-                        className="h-full w-full object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <ImageOff className="h-6 w-6 text-muted-foreground" />
-                    )}
-                  </div>
+              <div className="flex items-center justify-center overflow-hidden rounded-t-lg bg-muted aspect-square h-[130px]">
+                {product.imageUrl ? (
+                  <Image
+                    src={product.imageUrl}
+                    alt={product.productName}
+                    width={200}
+                    height={70}
+                    className="h-full w-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <ImageOff className="h-8 w-8 text-muted-foreground" />
+                )}
               </div>
-             
-              <div className="min-w-0 flex-1">
+
+              <div className="min-w-0 flex-1 p-4">
+                {/* Ingredient pill */}
+                {product.shopIngredient && (
+                  <div className="flex justify-end mb-1">
+                    <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-medium">
+                      {product.shopIngredient.name}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium ">{product.productName}</p>
+                    <p className="font-medium">{product.productName}</p>
                     <p className="text-sm text-muted-foreground">
                       {RETAILER_LABELS[product.retailer]}
                     </p>
@@ -203,6 +311,43 @@ export function ProductsList({ showHeaderActions = true }: ProductsListProps) {
             </div>
           ))}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="sr-only">Previous</span>
+            </Button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <Button
+                key={page}
+                variant={page === safePage ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentPage(page)}
+                className="min-w-8"
+              >
+                {page}
+              </Button>
+            ))}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+            >
+              <ChevronRight className="w-4 h-4" />
+              <span className="sr-only">Next</span>
+            </Button>
+          </div>
+        )}
       </div>
     </>
   );

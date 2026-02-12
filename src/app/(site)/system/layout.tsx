@@ -43,6 +43,12 @@ export default async function SystemLayout({ children }: { children: React.React
                         </Link>
                     </li>
                     <li>
+                        <Link href="/system/match" className="flex items-center justify-between">
+                            Match Products
+                            <span className="text-xs text-muted-foreground tabular-nums">{counts.products}</span>
+                        </Link>
+                    </li>
+                    <li>
                         <Link href="/system/jobs">Jobs</Link>
                     </li>
                 </ul>

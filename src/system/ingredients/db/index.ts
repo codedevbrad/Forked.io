@@ -5,6 +5,13 @@ import { auth } from "@/auth";
 import { ActionResult } from "@/src/domains/user/db";
 import { IngredientType, StorageType } from "@prisma/client";
 
+export type SystemShopIngredientProduct = {
+  id: string;
+  productName: string;
+  retailer: string;
+  imageUrl: string | null;
+};
+
 export type SystemShopIngredientRow = {
   id: string;
   name: string;
@@ -13,6 +20,7 @@ export type SystemShopIngredientRow = {
   categoryId: string | null;
   categoryName: string | null;
   userCount: number;
+  products: SystemShopIngredientProduct[];
 };
 
 /** System view: all ShopIngredients with count of user Ingredient records linked to each. */
@@ -25,7 +33,13 @@ export async function getSystemShopIngredientsWithUserCountAction(): Promise<
 
     const [shopIngredients, usageCounts] = await Promise.all([
       prisma.shopIngredient.findMany({
-        include: { category: true },
+        include: {
+          category: true,
+          shopProducts: {
+            select: { id: true, productName: true, retailer: true, imageUrl: true },
+            orderBy: { createdAt: "desc" },
+          },
+        },
         orderBy: { name: "asc" },
       }),
       prisma.ingredient.groupBy({
@@ -49,6 +63,12 @@ export async function getSystemShopIngredientsWithUserCountAction(): Promise<
       categoryId: si.categoryId ?? null,
       categoryName: si.category?.name ?? null,
       userCount: countByShopId.get(si.id) ?? 0,
+      products: si.shopProducts.map((p) => ({
+        id: p.id,
+        productName: p.productName,
+        retailer: p.retailer,
+        imageUrl: p.imageUrl,
+      })),
     }));
   } catch (error) {
     console.error("Get system shop ingredients error:", error);

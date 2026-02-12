@@ -19,7 +19,8 @@
     "db:redo": "npm run db:drop && npm run db:create && npm run db:migrate",
     "db:seed": "npx tsx prisma/seed/index.ts",
     "cloudflare:test": "npx tsx scripts/test-r2.ts",
-    "db:clean": "npm run db:reset && npm run db:seed"
+    "db:clean": "npm run db:reset && npm run db:seed",
+    "db:clean:products": "npx tsx prisma/clean/products.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.975.0",

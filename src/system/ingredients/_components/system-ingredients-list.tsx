@@ -8,7 +8,10 @@ import { useCategories } from "@/src/domains/categories/_contexts/useCategories"
 import { SystemIngredientEditDialog } from "./system-ingredient-edit-dialog";
 import { SystemIngredientCreateDialog } from "./system-ingredient-create-dialog";
 import type { SystemShopIngredientRow } from "../db";
-import { ChevronLeft, ChevronRight, Pencil, Plus, Search, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/src/components/ui/popover";
+import type { SystemShopIngredientProduct } from "../db";
+import { ChevronLeft, ChevronRight, Package, Pencil, Plus, Search, X, ImageOff } from "lucide-react";
+import Image from "next/image";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -230,9 +233,73 @@ export function SystemIngredientsList() {
                     <span>{row.categoryName}</span>
                   )}
                 </div>
-                <div className="mt-1 text-sm">
-                  <span className="text-muted-foreground">Users using: </span>
-                  <span className="font-medium">{row.userCount}</span>
+                <div className="mt-1 flex items-center gap-3 text-sm">
+                  <span>
+                    <span className="text-muted-foreground">Users using: </span>
+                    <span className="font-medium">{row.userCount}</span>
+                  </span>
+
+                  {/* Product count pill with popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={
+                          "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors " +
+                          (row.products.length > 0
+                            ? "bg-primary/10 text-primary hover:bg-primary/20"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80")
+                        }
+                      >
+                        <Package className="h-3 w-3" />
+                        {row.products.length} product{row.products.length === 1 ? "" : "s"}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-86 p-0">
+                      <div className="px-3 py-2 border-b">
+                        <p className="text-sm font-medium">
+                          Products for {row.name}
+                        </p>
+                      </div>
+                      {row.products.length === 0 ? (
+                        <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                          No products matched yet.
+                        </div>
+                      ) : (
+                        <div className="max-h-60 overflow-y-auto divide-y">
+                          {row.products.map((product) => (
+                            <div
+                              key={product.id}
+                              className="flex items-center gap-2.5 px-3 py-2"
+                            >
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
+                                {product.imageUrl ? (
+                                  <Image
+                                    src={product.imageUrl}
+                                    alt={product.productName}
+                                    width={32}
+                                    height={32}
+                                    className="h-full w-full object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <ImageOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium">
+                                  {product.productName}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {product.retailer}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             ))}

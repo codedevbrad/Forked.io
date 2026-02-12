@@ -20,9 +20,9 @@ export function MyProductsPageClient() {
         {/* Page header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">My Products</h1>
+            <h1 className="text-3xl font-bold mb-2">Products</h1>
             <p className="text-muted-foreground">
-              Manage your shop products and ingredients. Add products from
+              Manage shop products and ingredients. Add products from
               retailers and organize ingredients for recipes and storage.
             </p>
           </div>

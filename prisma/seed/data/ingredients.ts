@@ -100,7 +100,6 @@ export const fishItems = [
     { name: "Hake fillet", type: "food", storageType: "fridge" },
     { name: "Plaice fillet", type: "food", storageType: "fridge" },
     { name: "Sole fillet", type: "food", storageType: "fridge" },
-    { name: "Coleman fillet", type: "food", storageType: "fridge" },
     { name: "Whiting fillet", type: "food", storageType: "fridge" },
   
     // =====================
