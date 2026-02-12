@@ -79,7 +79,9 @@ export async function extractRecipeData(
 Available units: g, kg, ml, l, tbsp, tsp, piece
 
 For each ingredient, extract:
-- name: the ingredient name (normalized, e.g., "flour" not "all-purpose flour")
+- name: the ingredient name in SINGULAR canonical form (e.g., "carrot" not "carrots", "chicken thigh" not "chicken thighs", "onion" not "onions").
+  Keep inherently plural/mass nouns as-is (e.g., "grapes", "oats", "baked beans", "noodles", "lentils", "spinach", "rice").
+  Normalise the name (e.g., "flour" not "all-purpose flour").
 - quantity: the numeric quantity (if not specified, use 1)
 - unit: one of the available units (g, kg, ml, l, tbsp, tsp, piece). If the unit is not in the list, map it appropriately:
   - cups, cup -> convert to appropriate unit (e.g., 1 cup flour ≈ 120g, 1 cup liquid ≈ 240ml)
@@ -95,7 +97,6 @@ Return a JSON object with this structure:
   "ingredients": [
     {
       "name": "ingredient name",
-      
       "quantity": 100,
       "unit": "g"
     }

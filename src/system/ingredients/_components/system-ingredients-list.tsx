@@ -8,7 +8,9 @@ import { useCategories } from "@/src/domains/categories/_contexts/useCategories"
 import { SystemIngredientEditDialog } from "./system-ingredient-edit-dialog";
 import { SystemIngredientCreateDialog } from "./system-ingredient-create-dialog";
 import type { SystemShopIngredientRow } from "../db";
-import { Pencil, Plus, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, X } from "lucide-react";
+
+const ITEMS_PER_PAGE = 10;
 
 export function SystemIngredientsList() {
   const { data: ingredients, isLoading, error, mutate } = useSystemIngredients();
@@ -23,6 +25,7 @@ export function SystemIngredientsList() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(
     new Set()
   );
+  const [page, setPage] = useState(1);
 
   const toggleCategory = (id: string) => {
     setSelectedCategoryIds((prev) => {
@@ -34,11 +37,13 @@ export function SystemIngredientsList() {
       }
       return next;
     });
+    setPage(1);
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setSelectedCategoryIds(new Set());
+    setPage(1);
   };
 
   const hasActiveFilters = searchQuery.length > 0 || selectedCategoryIds.size > 0;
@@ -64,6 +69,14 @@ export function SystemIngredientsList() {
 
     return result;
   }, [ingredients, selectedCategoryIds, searchQuery]);
+
+  // ── Pagination ─────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(filteredIngredients.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedIngredients = filteredIngredients.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
+  );
 
   // ── Handlers ─────────────────────────────────────────
   const handleEditClick = (row: SystemShopIngredientRow) => {
@@ -119,7 +132,7 @@ export function SystemIngredientsList() {
           <Input
             placeholder="Search ingredients…"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
             className="pl-9"
           />
         </div>
@@ -188,41 +201,72 @@ export function SystemIngredientsList() {
             : "No ingredients yet."}
         </p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredIngredients.map((row) => (
-            <div
-              key={row.id}
-              className="group relative flex flex-col gap-1 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-muted/50"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="font-medium">{row.name}</div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={() => handleEditClick(row)}
-                >
-                  <Pencil className="h-4 w-4" />
-                  <span className="sr-only">Edit</span>
-                </Button>
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {paginatedIngredients.map((row) => (
+              <div
+                key={row.id}
+                className="group relative flex flex-col gap-1 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-medium">{row.name}</div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={() => handleEditClick(row)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Edit</span>
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0 text-sm text-muted-foreground">
+                  <span>{row.type}</span>
+                  {row.storageType != null && (
+                    <span>{row.storageType}</span>
+                  )}
+                  {row.categoryName != null && (
+                    <span>{row.categoryName}</span>
+                  )}
+                </div>
+                <div className="mt-1 text-sm">
+                  <span className="text-muted-foreground">Users using: </span>
+                  <span className="font-medium">{row.userCount}</span>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-0 text-sm text-muted-foreground">
-                <span>{row.type}</span>
-                {row.storageType != null && (
-                  <span>{row.storageType}</span>
-                )}
-                {row.categoryName != null && (
-                  <span>{row.categoryName}</span>
-                )}
-              </div>
-              <div className="mt-1 text-sm">
-                <span className="text-muted-foreground">Users using: </span>
-                <span className="font-medium">{row.userCount}</span>
-              </div>
+            ))}
+          </div>
+
+          {/* ── Pagination ──────────────────────────────── */}
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {safePage} of {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </>
   );

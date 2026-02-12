@@ -6,6 +6,8 @@ import { ActionResult } from "@/src/domains/user/db";
 import { Unit, IngredientType } from "@prisma/client";
 import { scrapeRecipeFromUrl } from "@/src/services/scraper";
 import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
+import { searchUnsplashPhotos, type UnsplashPhoto } from "@/src/services/unsplash";
+import { getNameVariants } from "@/src/lib/pluralise";
 import { uploadRecipeImageToR2 } from "@/src/lib/cloudflare";
 
 export type RecipeIngredientInput = {
@@ -394,6 +396,35 @@ export async function uploadRecipeImageAction(
 }
 
 /**
+ * Searches Unsplash for photos matching a query string
+ */
+export async function searchUnsplashImagesAction(
+  query: string
+): Promise<ActionResult<{ photos: UnsplashPhoto[] }>> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!query || query.trim().length === 0) {
+      return { success: false, error: "Search query is required" };
+    }
+
+    const photos = await searchUnsplashPhotos(query.trim());
+    return { success: true, data: { photos } };
+  } catch (error) {
+    console.error("Unsplash search error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return {
+      success: false,
+      error: `Failed to search Unsplash: ${errorMessage}`,
+    };
+  }
+}
+
+/**
  * Saves a previewed recipe to the database.
  * Matches scraped ingredients to existing ShopIngredient by name (case-insensitive).
  * Unmatched names are linked to a CustomUserIngredient (find-or-create).
@@ -434,10 +465,15 @@ export async function savePreviewedRecipeAction(
 
     for (const extractedIng of ingredients) {
       const trimmedName = extractedIng.name.trim();
+      const nameVariants = getNameVariants(trimmedName);
 
-      // Try to find existing ShopIngredient by name (case-insensitive)
+      // Try to find existing ShopIngredient by name variants (singular/plural, case-insensitive)
       const shopIngredient = await prisma.shopIngredient.findFirst({
-        where: { name: { equals: trimmedName, mode: "insensitive" } },
+        where: {
+          OR: nameVariants.map((variant) => ({
+            name: { equals: variant, mode: "insensitive" as const },
+          })),
+        },
       });
 
       let ingredient: { id: string };
@@ -462,7 +498,7 @@ export async function savePreviewedRecipeAction(
       } else {
         // No ShopIngredient match — find or create a CustomUserIngredient
         let customUserIng = existingCustomUserIngredients.find(
-          (c) => c.name.toLowerCase() === trimmedName.toLowerCase()
+          (c) => nameVariants.includes(c.name.toLowerCase())
         );
 
         const wasPreExisting = customUserIng ? preExistingCustomIds.has(customUserIng.id) : false;
@@ -596,8 +632,14 @@ export async function importRecipeFromUrlAction(
 
     for (const extractedIng of extractedData.ingredients) {
       const trimmedName = extractedIng.name.trim();
+      const nameVariants = getNameVariants(trimmedName);
+
       const shopIngredient = await prisma.shopIngredient.findFirst({
-        where: { name: { equals: trimmedName, mode: "insensitive" } },
+        where: {
+          OR: nameVariants.map((variant) => ({
+            name: { equals: variant, mode: "insensitive" as const },
+          })),
+        },
       });
 
       let ingredient: { id: string };
@@ -621,7 +663,7 @@ export async function importRecipeFromUrlAction(
       } else {
         // No ShopIngredient match — find or create a CustomUserIngredient
         let customUserIng = existingCustomUserIngredients.find(
-          (c) => c.name.toLowerCase() === trimmedName.toLowerCase()
+          (c) => nameVariants.includes(c.name.toLowerCase())
         );
 
         if (!customUserIng) {

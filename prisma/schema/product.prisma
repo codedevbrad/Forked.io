@@ -32,6 +32,7 @@ model ShopIngredient {
   ingredient Ingredient?  // back-relation (optional because FK is on Ingredient)
 
   shopProducts ShopProduct[]
+  shoppingListIngredients ShoppingListIngredient[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -44,6 +44,16 @@ CREATE TABLE "RecipeWebsites" (
 );
 
 -- CreateTable
+CREATE TABLE "ShopList" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ShopList_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Tag" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -172,7 +182,8 @@ CREATE TABLE "ShoppingList" (
 CREATE TABLE "ShoppingListIngredient" (
     "id" TEXT NOT NULL,
     "shoppingListId" TEXT NOT NULL,
-    "ingredientId" TEXT NOT NULL,
+    "ingredientId" TEXT,
+    "shopIngredientId" TEXT,
     "quantity" DOUBLE PRECISION NOT NULL,
     "unit" "Unit" NOT NULL,
     "recipeId" TEXT,
@@ -320,7 +331,10 @@ ALTER TABLE "ShoppingList" ADD CONSTRAINT "ShoppingList_userId_fkey" FOREIGN KEY
 ALTER TABLE "ShoppingListIngredient" ADD CONSTRAINT "ShoppingListIngredient_shoppingListId_fkey" FOREIGN KEY ("shoppingListId") REFERENCES "ShoppingList"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ShoppingListIngredient" ADD CONSTRAINT "ShoppingListIngredient_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "Ingredient"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ShoppingListIngredient" ADD CONSTRAINT "ShoppingListIngredient_ingredientId_fkey" FOREIGN KEY ("ingredientId") REFERENCES "Ingredient"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShoppingListIngredient" ADD CONSTRAINT "ShoppingListIngredient_shopIngredientId_fkey" FOREIGN KEY ("shopIngredientId") REFERENCES "ShopIngredient"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ShoppingListIngredient" ADD CONSTRAINT "ShoppingListIngredient_recipeId_fkey" FOREIGN KEY ("recipeId") REFERENCES "Recipe"("id") ON DELETE SET NULL ON UPDATE CASCADE;
