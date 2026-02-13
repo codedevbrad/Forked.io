@@ -254,6 +254,17 @@ CREATE TABLE "CustomUserIngredient" (
 );
 
 -- CreateTable
+CREATE TABLE "UserGroupedIngredients" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UserGroupedIngredients_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_RecipeToTag" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -267,6 +278,14 @@ CREATE TABLE "_IngredientToTag" (
     "B" TEXT NOT NULL,
 
     CONSTRAINT "_IngredientToTag_AB_pkey" PRIMARY KEY ("A","B")
+);
+
+-- CreateTable
+CREATE TABLE "_IngredientToUserGroupedIngredients" (
+    "A" TEXT NOT NULL,
+    "B" TEXT NOT NULL,
+
+    CONSTRAINT "_IngredientToUserGroupedIngredients_AB_pkey" PRIMARY KEY ("A","B")
 );
 
 -- CreateIndex
@@ -291,10 +310,16 @@ CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 CREATE UNIQUE INDEX "Ingredient_shopIngredientId_key" ON "Ingredient"("shopIngredientId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserGroupedIngredients_userId_name_key" ON "UserGroupedIngredients"("userId", "name");
+
+-- CreateIndex
 CREATE INDEX "_RecipeToTag_B_index" ON "_RecipeToTag"("B");
 
 -- CreateIndex
 CREATE INDEX "_IngredientToTag_B_index" ON "_IngredientToTag"("B");
+
+-- CreateIndex
+CREATE INDEX "_IngredientToUserGroupedIngredients_B_index" ON "_IngredientToUserGroupedIngredients"("B");
 
 -- AddForeignKey
 ALTER TABLE "Tag" ADD CONSTRAINT "Tag_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -363,6 +388,9 @@ ALTER TABLE "CustomUserIngredient" ADD CONSTRAINT "CustomUserIngredient_category
 ALTER TABLE "CustomUserIngredient" ADD CONSTRAINT "CustomUserIngredient_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "UserGroupedIngredients" ADD CONSTRAINT "UserGroupedIngredients_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "_RecipeToTag" ADD CONSTRAINT "_RecipeToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -373,3 +401,9 @@ ALTER TABLE "_IngredientToTag" ADD CONSTRAINT "_IngredientToTag_A_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "_IngredientToTag" ADD CONSTRAINT "_IngredientToTag_B_fkey" FOREIGN KEY ("B") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_IngredientToUserGroupedIngredients" ADD CONSTRAINT "_IngredientToUserGroupedIngredients_A_fkey" FOREIGN KEY ("A") REFERENCES "Ingredient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_IngredientToUserGroupedIngredients" ADD CONSTRAINT "_IngredientToUserGroupedIngredients_B_fkey" FOREIGN KEY ("B") REFERENCES "UserGroupedIngredients"("id") ON DELETE CASCADE ON UPDATE CASCADE;

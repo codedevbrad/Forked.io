@@ -5,11 +5,13 @@ import { ProductsList } from "@/src/domains/products/_components/products-list";
 import { ProductModal } from "@/src/domains/products/_components/product-modal";
 import Link from "next/link";
 import { IngredientsPageClient } from "../ingredients/_components/ingredients-page-client";
+import { GroupsList } from "@/src/domains/groups/_components/groups-list";
+import { GroupModal } from "@/src/domains/groups/_components/group-modal";
 import { Button } from "@/src/components/ui/button";
-import { Package, UtensilsCrossed, Search } from "lucide-react";
+import { Package, UtensilsCrossed, Search, FolderOpen } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 
-type Display = "products" | "ingredients";
+type Display = "products" | "ingredients" | "groups";
 
 export function MyProductsPageClient() {
   const [display, setDisplay] = useState<Display>("products");
@@ -68,6 +70,23 @@ export function MyProductsPageClient() {
             <UtensilsCrossed className="size-4" />
             Ingredients
           </Button>
+          <Button
+            role="tab"
+            aria-selected={display === "groups"}
+            aria-controls="groups-panel"
+            id="groups-tab"
+            variant="ghost"
+            size="sm"
+            onClick={() => setDisplay("groups")}
+            className={cn(
+              "gap-2",
+              display === "groups" &&
+                "bg-background shadow-sm hover:bg-background"
+            )}
+          >
+            <FolderOpen className="size-4" />
+            Groups
+          </Button>
         </div>
 
         {/* Actions per display */}
@@ -80,6 +99,12 @@ export function MyProductsPageClient() {
               </Button>
             </Link>
             <ProductModal mode="create" />
+          </div>
+        )}
+
+        {display === "groups" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <GroupModal mode="create" />
           </div>
         )}
 
@@ -103,6 +128,17 @@ export function MyProductsPageClient() {
           className="space-y-4"
         >
           <IngredientsPageClient variant="section" />
+        </section>
+
+        {/* Groups display */}
+        <section
+          id="groups-panel"
+          role="tabpanel"
+          aria-labelledby="groups-tab"
+          hidden={display !== "groups"}
+          className="space-y-4"
+        >
+          <GroupsList />
         </section>
       </div>
     </div>

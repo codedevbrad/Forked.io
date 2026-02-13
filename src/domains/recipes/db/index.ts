@@ -19,7 +19,8 @@ export type RecipeIngredientInput = {
 export async function createRecipeAction(
   name: string,
   ingredients: RecipeIngredientInput[] = [],
-  tagIds: string[] = []
+  tagIds: string[] = [],
+  imageUrl?: string
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -65,6 +66,7 @@ export async function createRecipeAction(
       data: {
         name: name.trim(),
         userId: session.user.id as string,
+        ...(imageUrl ? { image: imageUrl } : {}),
         ingredients: {
           create: ingredients.map((ing) => ({
             ingredientId: ing.ingredientId,

@@ -35,6 +35,8 @@ function compositeKey(source: IngredientSource, id: string) {
   return `${source}:${id}`;
 }
 
+export { compositeKey };
+
 export function IngredientPicker({ selected, onToggle, disabled }: IngredientPickerProps) {
   const { data: userIngredients } = useIngredients();
   const { data: shopIngredients } = useShopIngredients();
@@ -176,7 +178,7 @@ export function IngredientPicker({ selected, onToggle, disabled }: IngredientPic
               categoryFilter === cat.id
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background text-muted-foreground border-border hover:bg-accent"
-            }`}
+              }`}
           >
             {cat.name}
           </button>

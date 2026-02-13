@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createShoppingListAction, updateShoppingListAction, ShoppingListIngredientInput } from "@/src/domains/shop/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
 import { useShoppingLists } from "@/src/domains/shop/_contexts/useShoppingLists";
-import { IngredientPicker, PickedIngredient, IngredientSource } from "./ingredient-picker";
+import { IngredientPicker, PickedIngredient, IngredientSource } from "@/src/domains/ingredients/_components/ingredient-picker";
 import { Unit } from "@prisma/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/src/components/ui/popover";
 import { X, ChevronDown } from "lucide-react";
