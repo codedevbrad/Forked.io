@@ -1,7 +1,7 @@
 import "dotenv/config"
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient, IngredientType, StorageType } from "@prisma/client"
-import { ingredientsByCategory } from "./data/ingredients";
+import { ingredientsByCategory } from "../data/ingredients";
 
 /** Seeds ShopIngredient records and connects each to its Category. */
 export async function seedShopIngredients(prisma: PrismaClient) {

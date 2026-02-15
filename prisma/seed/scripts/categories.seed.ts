@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
-import { categories } from "./data/categories";
+import { categories } from "../data/categories";
 
 /** Seeds Category records from prisma/seed/data/categories.ts data. */
 export async function seedCategories(prisma: PrismaClient) {

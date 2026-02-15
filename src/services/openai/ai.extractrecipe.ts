@@ -18,6 +18,96 @@ export type ExtractedRecipeData = {
 };
 
 /**
+ * US → UK ingredient name conversions
+ * Applied as a post-processing safety net after AI extraction
+ */
+const US_TO_UK_INGREDIENTS: Record<string, string> = {
+  // Vegetables
+  "cilantro": "coriander",
+  "scallion": "spring onion",
+  "scallions": "spring onion",
+  "eggplant": "aubergine",
+  "zucchini": "courgette",
+  "arugula": "rocket",
+  "bell pepper": "pepper",
+  "chili pepper": "chilli",
+  "chile pepper": "chilli",
+  "romaine lettuce": "cos lettuce",
+  "romaine": "cos lettuce",
+  "swiss chard": "chard",
+  "rutabaga": "swede",
+
+  // Meat & Dairy
+  "ground beef": "beef mince",
+  "ground turkey": "turkey mince",
+  "ground pork": "pork mince",
+  "ground lamb": "lamb mince",
+  "ground chicken": "chicken mince",
+  "heavy cream": "double cream",
+  "heavy whipping cream": "double cream",
+  "half-and-half": "single cream",
+  "half and half": "single cream",
+  "whipping cream": "double cream",
+  "american cheese": "processed cheese slices",
+  "sharp cheddar": "mature cheddar",
+  "stick butter": "block butter",
+
+  // Baking & Pantry
+  "all-purpose flour": "plain flour",
+  "all purpose flour": "plain flour",
+  "cake flour": "soft flour",
+  "cornstarch": "cornflour",
+  "corn starch": "cornflour",
+  "powdered sugar": "icing sugar",
+  "confectioners sugar": "icing sugar",
+  "confectioners' sugar": "icing sugar",
+  "granulated sugar": "caster sugar",
+  "brown sugar": "soft brown sugar",
+  "light brown sugar": "light soft brown sugar",
+  "dark brown sugar": "dark soft brown sugar",
+  "baking soda": "bicarbonate of soda",
+  "kosher salt": "flaked salt",
+  "tomato sauce": "passata",
+  "tomato puree": "sieved tomato",
+  "ketchup": "tomato ketchup",
+
+  // Oils & Other
+  "canola oil": "rapeseed oil",
+  "molasses": "black treacle",
+  "vegetable shortening": "trex",
+  "marshmallow fluff": "marshmallow spread",
+};
+
+/**
+ * Converts US ingredient names to UK equivalents
+ * Checks for exact match first, then substring match for compound names
+ */
+function convertToUKIngredient(name: string): string {
+  const lower = name.toLowerCase().trim();
+
+  // Check for exact match
+  if (US_TO_UK_INGREDIENTS[lower]) {
+    // Preserve the original casing style
+    const ukName = US_TO_UK_INGREDIENTS[lower];
+    // If the original started with uppercase, capitalise the UK name
+    if (name[0] === name[0].toUpperCase()) {
+      return ukName.charAt(0).toUpperCase() + ukName.slice(1);
+    }
+    return ukName;
+  }
+
+  // Check if the name contains a US term as a substring (e.g., "fresh cilantro" → "fresh coriander")
+  for (const [usTerm, ukTerm] of Object.entries(US_TO_UK_INGREDIENTS)) {
+    const regex = new RegExp(`\\b${usTerm}\\b`, "i");
+    if (regex.test(lower)) {
+      return name.replace(regex, ukTerm);
+    }
+  }
+
+  return name;
+}
+
+/**
  * Normalizes an ingredient name for comparison
  * Removes common prefixes/suffixes and normalizes case
  */
@@ -75,13 +165,28 @@ export async function extractRecipeData(
   images: string[] = []
 ): Promise<ExtractedRecipeData> {
   const prompt = `You are a recipe parser. Extract the recipe name and ingredients from the following recipe content.
+IMPORTANT: Always use UK English ingredient names, never US names.
 
 Available units: g, kg, ml, l, tbsp, tsp, piece
 
 For each ingredient, extract:
 - name: the ingredient name in SINGULAR canonical form (e.g., "carrot" not "carrots", "chicken thigh" not "chicken thighs", "onion" not "onions").
   Keep inherently plural/mass nouns as-is (e.g., "grapes", "oats", "baked beans", "noodles", "lentils", "spinach", "rice").
-  Normalise the name (e.g., "flour" not "all-purpose flour").
+  Normalise the name (e.g., "flour" not "plain flour").
+  IMPORTANT: Always use the full, proper ingredient name — never abbreviations, nicknames or slang.
+  Examples: "mayo" → "mayonnaise", "parm" → "parmesan", "evoo" → "olive oil", "bicarb" → "bicarbonate of soda",
+  "choc" → "chocolate", "veg" → "vegetables", "spag" → "spaghetti", "tom" → "tomato", "pep" → "pepper",
+  "cuke" → "cucumber", "avo" → "avocado", "zucch" → "courgette", "garlic pw" → "garlic powder".
+  IMPORTANT: Always convert US ingredient names to their UK equivalents:
+  "cilantro" → "coriander", "scallion" → "spring onion", "eggplant" → "aubergine", "zucchini" → "courgette",
+  "arugula" → "rocket", "bell pepper" → "pepper", "romaine lettuce" → "cos lettuce", "rutabaga" → "swede",
+  "ground beef" → "beef mince", "ground pork" → "pork mince", "ground turkey" → "turkey mince",
+  "heavy cream" → "double cream", "half-and-half" → "single cream", "whipping cream" → "double cream",
+  "sharp cheddar" → "mature cheddar", "all-purpose flour" → "plain flour", "cake flour" → "soft flour",
+  "cornstarch" → "cornflour", "powdered sugar"/"confectioners' sugar" → "icing sugar",
+  "granulated sugar" → "caster sugar", "brown sugar" → "soft brown sugar",
+  "baking soda" → "bicarbonate of soda", "kosher salt" → "flaked salt",
+  "canola oil" → "rapeseed oil", "molasses" → "black treacle".
 - quantity: the numeric quantity (if not specified, use 1)
 - unit: one of the available units (g, kg, ml, l, tbsp, tsp, piece). If the unit is not in the list, map it appropriately:
   - cups, cup -> convert to appropriate unit (e.g., 1 cup flour ≈ 120g, 1 cup liquid ≈ 240ml)
@@ -151,7 +256,7 @@ Return only valid JSON, no additional text.`;
         return true;
       })
       .map((ing) => ({
-        name: ing.name.trim(),
+        name: convertToUKIngredient(ing.name.trim()),
         quantity: ing.quantity,
         unit: ing.unit,
       }));

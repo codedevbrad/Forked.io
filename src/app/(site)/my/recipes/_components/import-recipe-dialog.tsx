@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { previewRecipeFromUrlAction, savePreviewedRecipeAction, uploadRecipeImageAction } from "@/src/domains/recipes/db";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
 import { UnsplashPicker } from "@/src/components/ui/unsplash-picker";
-import { Link2, Loader2, CheckCircle2, Circle, ImageOff } from "lucide-react";
+import { GoogleImagePicker } from "@/src/components/ui/google-image-picker";
+import { Link2, Loader2, CheckCircle2, Circle, ImageOff, Globe } from "lucide-react";
 import type { ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
 import Image from "next/image";
 import { cn } from "@/src/lib/utils";
@@ -33,8 +34,9 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
   const [previewData, setPreviewData] = useState<{ name: string; ingredients: ExtractedIngredient[]; images: string[] } | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [editedName, setEditedName] = useState("");
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
-  const [imageTab, setImageTab] = useState<"found" | "unsplash">("found");
+  const [imageTab, setImageTab] = useState<"found" | "web" | "unsplash">("found");
   const [isPending, startTransition] = useTransition();
   const { mutate } = useRecipes();
 
@@ -79,6 +81,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
 
         // Step 4: Success - show preview
         setPreviewData(previewResult.data!);
+        setEditedName(previewResult.data!.name);
         setStep("success");
 
         // Auto-switch to Unsplash tab if no scraped images found
@@ -116,7 +119,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
       }
 
       const result = await savePreviewedRecipeAction(
-        previewData.name,
+        editedName.trim() || previewData.name,
         previewData.ingredients,
         url.trim(),
         finalImageUrl
@@ -150,6 +153,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
 
   const handleCancel = () => {
     setUrl("");
+    setEditedName("");
     setPreviewData(null);
     setSelectedImageUrl(null);
     setSaveResult(null);
@@ -163,6 +167,7 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
     setOpen(newOpen);
     if (!newOpen) {
       setUrl("");
+      setEditedName("");
       setError("");
       setPreviewData(null);
       setSelectedImageUrl(null);
@@ -318,10 +323,16 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
 
               <div className="border-t pt-4 space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Recipe Title</h3>
-                  <p className="text-sm text-muted-foreground bg-muted p-3 rounded">
-                    {previewData.name}
-                  </p>
+                  <label htmlFor="recipe-name" className="text-lg font-semibold mb-2 block">
+                    Recipe Title
+                  </label>
+                  <Input
+                    id="recipe-name"
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    placeholder="Recipe name"
+                    disabled={isPending}
+                  />
                 </div>
 
                 <div>
@@ -345,6 +356,21 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                           {previewData.images.length}
                         </span>
                       )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageTab("web")}
+                      className={cn(
+                        "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                        imageTab === "web"
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5" />
+                        Web Search
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -403,6 +429,14 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                             Try the{" "}
                             <button
                               type="button"
+                              onClick={() => setImageTab("web")}
+                              className="underline text-primary hover:text-primary/80"
+                            >
+                              Web Search
+                            </button>{" "}
+                            or{" "}
+                            <button
+                              type="button"
                               onClick={() => setImageTab("unsplash")}
                               className="underline text-primary hover:text-primary/80"
                             >
@@ -413,6 +447,16 @@ export function ImportRecipeDialog({ onSuccess }: ImportRecipeDialogProps) {
                         </div>
                       )}
                     </>
+                  )}
+
+                  {/* Web Search tab */}
+                  {imageTab === "web" && (
+                    <GoogleImagePicker
+                      selectedImageUrl={selectedImageUrl}
+                      onSelectImage={setSelectedImageUrl}
+                      initialQuery={previewData.name}
+                      autoSearch
+                    />
                   )}
 
                   {/* Unsplash tab */}

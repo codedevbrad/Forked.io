@@ -9,7 +9,7 @@ import { IngredientType, StorageType } from "@prisma/client";
 import { X, Search, Filter } from "lucide-react";
 import { useTags } from "@/src/domains/tags/_contexts/useTags";
 
-/** Type/storageType/category from linked ShopIngredient (one-to-one) */
+/** Type/storageType/category from linked ShopIngredient or CustomUserIngredient */
 type Ingredient = {
   id: string;
   name: string;
@@ -18,8 +18,14 @@ type Ingredient = {
     storageType: string | null;
     category: { id: string; name: string; color: string; icon?: string | null } | null;
   } | null;
+  customUserIngredient?: {
+    name: string;
+    category: { id: string; name: string; color: string; icon?: string | null } | null;
+  } | null;
   tag: Array<{ id: string; name: string; color: string }>;
 };
+
+const CUSTOM_CATEGORY_ID = "__custom__";
 
 type IngredientsFilterProps = {
   ingredients: Ingredient[];
@@ -34,16 +40,24 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
-  // Extract unique categories from ingredients
+  // Extract unique categories from ingredients (including a "Custom" pseudo-category)
   const categories = useMemo(() => {
     const categoryMap = new Map<string, { id: string; name: string; color: string; icon?: string | null }>();
+    let hasCustom = false;
     ingredients.forEach((ingredient) => {
       const cat = ingredient.shopIngredient?.category;
       if (cat && !categoryMap.has(cat.id)) {
         categoryMap.set(cat.id, cat);
       }
+      if (ingredient.customUserIngredient) {
+        hasCustom = true;
+      }
     });
-    return Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const sorted = Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    if (hasCustom) {
+      sorted.push({ id: CUSTOM_CATEGORY_ID, name: "Custom", color: "#8b5cf6", icon: null });
+    }
+    return sorted;
   }, [ingredients]);
 
   const filteredIngredients = useMemo(() => {
@@ -73,9 +87,12 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
 
     // Category filter
     if (selectedCategoryIds.length > 0) {
+      const wantsCustom = selectedCategoryIds.includes(CUSTOM_CATEGORY_ID);
+      const realCategoryIds = selectedCategoryIds.filter(id => id !== CUSTOM_CATEGORY_ID);
       filtered = filtered.filter(ingredient => {
+        if (wantsCustom && ingredient.customUserIngredient) return true;
         const catId = ingredient.shopIngredient?.category?.id;
-        return catId ? selectedCategoryIds.includes(catId) : false;
+        return catId ? realCategoryIds.includes(catId) : false;
       });
     }
 
@@ -206,9 +223,11 @@ export function IngredientsFilter({ ingredients, onFilterChange }: IngredientsFi
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => {
               const isSelected = selectedCategoryIds.includes(category.id);
-              const count = ingredients.filter(
-                (ing) => ing.shopIngredient?.category?.id === category.id
-              ).length;
+              const count = category.id === CUSTOM_CATEGORY_ID
+                ? ingredients.filter((ing) => !!ing.customUserIngredient).length
+                : ingredients.filter(
+                    (ing) => ing.shopIngredient?.category?.id === category.id
+                  ).length;
               return (
                 <button
                   key={category.id}

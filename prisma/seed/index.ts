@@ -1,8 +1,9 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
-import { seedCategories } from "./categories.seed";
-import { seedShopIngredients } from "./ingredients.seed";
+import { seedCategories } from "./scripts/categories.seed";
+import { seedShopIngredients } from "./scripts/ingredients.seed";
+import { seedDiscoverVideos } from "./scripts/discovervids.seed";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -16,6 +17,7 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   await seedCategories(prisma);
   await seedShopIngredients(prisma);
+  await seedDiscoverVideos(prisma);
 
   console.log("✨ All seeding completed!");
 }

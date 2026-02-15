@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback, useMemo } from "react";
+import { useState, useTransition, useCallback, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
@@ -15,11 +15,19 @@ import {
   IngredientSource,
   compositeKey,
 } from "@/src/domains/ingredients/_components/ingredient-picker";
+import { useShopIngredients } from "@/src/domains/shop/_contexts/useShopIngredients";
 import { UnsplashPicker } from "@/src/components/ui/unsplash-picker";
+import { GoogleImagePicker } from "@/src/components/ui/google-image-picker";
 import { TagSelector } from "@/src/domains/ingredients/_components/tag-selector";
 import { Unit } from "@prisma/client";
-import { X, CheckCircle2, Circle, ChevronRight, ChevronDown, ImageIcon } from "lucide-react";
+import { X, CheckCircle2, Circle, ChevronRight, ChevronDown, ImageIcon, PartyPopper, UtensilsCrossed, MessageSquare, Globe } from "lucide-react";
 import Image from "next/image";
+
+export type SuggestedIngredient = {
+  name: string;
+  quantity: number;
+  unit: string;
+};
 
 type SelectedIngredient = {
   source: IngredientSource;
@@ -32,6 +40,7 @@ type SelectedIngredient = {
 
 type RecipeFormProps = {
   initialName?: string;
+  initialSuggestedIngredients?: SuggestedIngredient[];
   initialTags?: Array<{
     id: string;
     name: string;
@@ -39,6 +48,8 @@ type RecipeFormProps = {
   }>;
   onSuccess?: () => void;
   onCancel?: () => void;
+  /** Called when user wants to go back to chat from the success screen */
+  onBackToChat?: () => void;
 };
 
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -53,11 +64,14 @@ const STEP_LABELS: Record<Step, string> = {
 
 export function RecipeForm({ 
   initialName = "", 
+  initialSuggestedIngredients,
   initialTags = [],
   onSuccess,
-  onCancel 
+  onCancel,
+  onBackToChat,
 }: RecipeFormProps) {
   const { data: userIngredients, mutate: mutateIngredients } = useIngredients();
+  const { data: shopIngredients } = useShopIngredients();
   const { mutate } = useRecipes();
   const [name, setName] = useState(initialName);
   const [recipeIngredients, setRecipeIngredients] = useState<SelectedIngredient[]>([]);
@@ -66,7 +80,13 @@ export function RecipeForm({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [currentStep, setCurrentStep] = useState<Step>(1);
+  const [created, setCreated] = useState(false);
+  const [createdRecipeName, setCreatedRecipeName] = useState("");
+  const [imageSource, setImageSource] = useState<"unsplash" | "web">("web");
+
+  // If we have pre-filled data (from AI recommendation), skip to step 2 (ingredients)
+  const hasInitialData = !!(initialName && initialSuggestedIngredients?.length);
+  const [currentStep, setCurrentStep] = useState<Step>(hasInitialData ? 2 : 1);
 
   // Build shopIngredientId → Ingredient.id map
   const shopToIngredientMap = useMemo(() => {
@@ -81,6 +101,92 @@ export function RecipeForm({
     });
     return map;
   }, [userIngredients]);
+
+  // Auto-match suggested ingredients against user's library + shop catalog
+  const hasMatchedSuggestions = useRef(false);
+  useEffect(() => {
+    if (
+      hasMatchedSuggestions.current ||
+      !initialSuggestedIngredients?.length ||
+      !userIngredients ||
+      !shopIngredients
+    ) {
+      return;
+    }
+    hasMatchedSuggestions.current = true;
+
+    const validUnits = new Set(Object.values(Unit));
+    const matched: SelectedIngredient[] = [];
+    const seen = new Set<string>(); // avoid duplicates
+
+    for (const suggested of initialSuggestedIngredients) {
+      const suggestedLower = suggested.name.toLowerCase().trim();
+      const suggestedUnit = validUnits.has(suggested.unit as Unit)
+        ? (suggested.unit as Unit)
+        : Unit.g;
+
+      // 1. Try matching against user's existing ingredients (by display name)
+      let found = false;
+      for (const ui of userIngredients) {
+        const displayName = getIngredientDisplayName(ui).toLowerCase();
+        if (displayName === suggestedLower || displayName.includes(suggestedLower) || suggestedLower.includes(displayName)) {
+          const key = compositeKey(ui.shopIngredientId ? "shop" : "user", ui.shopIngredientId ?? ui.id);
+          if (seen.has(key)) continue;
+          seen.add(key);
+
+          if (ui.shopIngredientId) {
+            matched.push({
+              source: "shop",
+              originalId: ui.shopIngredientId,
+              ingredientId: ui.id,
+              name: getIngredientDisplayName(ui),
+              quantity: String(suggested.quantity),
+              unit: suggestedUnit,
+            });
+          } else {
+            matched.push({
+              source: "user",
+              originalId: ui.id,
+              ingredientId: ui.id,
+              name: getIngredientDisplayName(ui),
+              quantity: String(suggested.quantity),
+              unit: suggestedUnit,
+            });
+          }
+          found = true;
+          break;
+        }
+      }
+
+      // 2. If not in user's library, try the full shop catalog
+      if (!found) {
+        for (const si of shopIngredients) {
+          const shopName = si.name.toLowerCase();
+          if (shopName === suggestedLower || shopName.includes(suggestedLower) || suggestedLower.includes(shopName)) {
+            const key = compositeKey("shop", si.id);
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            const resolved = shopToIngredientMap.get(si.id);
+            matched.push({
+              source: "shop",
+              originalId: si.id,
+              ingredientId: resolved?.ingredientId ?? "",
+              name: si.name,
+              quantity: String(suggested.quantity),
+              unit: suggestedUnit,
+            });
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (matched.length > 0) {
+      setRecipeIngredients(matched);
+    }
+  }, [initialSuggestedIngredients, userIngredients, shopIngredients, shopToIngredientMap]);
 
   // Build selected set for the picker
   const selectedSet = useMemo(
@@ -258,6 +364,7 @@ export function RecipeForm({
       if (!result.success) {
         setError(result.error);
       } else {
+        const savedName = name;
         setName("");
         setRecipeIngredients([]);
         setSelectedTagIds([]);
@@ -265,7 +372,13 @@ export function RecipeForm({
         setCurrentStep(1);
         await mutate();
         await mutateIngredients();
-        onSuccess?.();
+        // If we have a back-to-chat callback, show the success screen instead of immediately closing
+        if (onBackToChat) {
+          setCreatedRecipeName(savedName);
+          setCreated(true);
+        } else {
+          onSuccess?.();
+        }
       }
     });
   };
@@ -292,6 +405,53 @@ export function RecipeForm({
       </div>
     );
   };
+
+  if (created) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center space-y-6">
+        <div className="relative">
+          <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <PartyPopper className="w-10 h-10 text-green-600 dark:text-green-400" />
+          </div>
+          <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <CheckCircle2 className="w-5 h-5 text-green-500" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold">Recipe Added!</h3>
+          <p className="text-muted-foreground text-sm max-w-xs">
+            <span className="font-medium text-foreground">&ldquo;{createdRecipeName}&rdquo;</span>{" "}
+            has been saved to your recipe collection.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+          <Button
+            onClick={() => {
+              setCreated(false);
+              onSuccess?.();
+            }}
+            className="flex-1 gap-2"
+          >
+            <UtensilsCrossed className="w-4 h-4" />
+            Go to Recipes
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCreated(false);
+              onBackToChat?.();
+            }}
+            className="flex-1 gap-2"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Back to Chat
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -442,15 +602,56 @@ export function RecipeForm({
           <div className="space-y-3">
             <label className="text-sm font-medium">Recipe Image</label>
             <p className="text-sm text-muted-foreground">
-              Search Unsplash for a picture to represent your recipe (optional)
+              Find a picture to represent your recipe (optional)
             </p>
-            <UnsplashPicker
-              selectedImageUrl={selectedImageUrl}
-              onSelectImage={setSelectedImageUrl}
-              initialQuery={name}
-              autoSearch={!!name.trim()}
-              disabled={isPending}
-            />
+
+            {/* Image source tabs */}
+            <div className="flex gap-1 p-1 bg-muted rounded-lg">
+              <button
+                type="button"
+                onClick={() => setImageSource("web")}
+                className={`flex items-center gap-1.5 flex-1 text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                  imageSource === "web"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                Web Search
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageSource("unsplash")}
+                className={`flex items-center gap-1.5 flex-1 text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                  imageSource === "unsplash"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                Unsplash
+              </button>
+            </div>
+
+            {/* Pickers */}
+            {imageSource === "web" ? (
+              <GoogleImagePicker
+                selectedImageUrl={selectedImageUrl}
+                onSelectImage={setSelectedImageUrl}
+                initialQuery={name}
+                autoSearch={!!name.trim()}
+                disabled={isPending}
+              />
+            ) : (
+              <UnsplashPicker
+                selectedImageUrl={selectedImageUrl}
+                onSelectImage={setSelectedImageUrl}
+                initialQuery={name}
+                autoSearch={!!name.trim()}
+                disabled={isPending}
+              />
+            )}
+
             {selectedImageUrl && (
               <div className="flex items-center gap-3 p-2 border rounded-lg bg-muted/50">
                 <div className="relative w-16 h-10 rounded overflow-hidden shrink-0">
