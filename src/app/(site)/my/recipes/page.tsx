@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { RecipesList } from "./_components/recipes-list";
 import { CreateRecipePopover } from "./_components/create-recipe-popover";
 import { ImportRecipeDialog } from "./_components/import-recipe-dialog";
-import { RecommendChatDrawer } from "./_components/recommend-chat-drawer";
 
 export default async function RecipesPage() {
   const session = await auth();
@@ -23,7 +22,6 @@ export default async function RecipesPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <RecommendChatDrawer />
             <ImportRecipeDialog />
             <CreateRecipePopover />
           </div>

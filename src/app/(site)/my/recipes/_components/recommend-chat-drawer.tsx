@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/src/components/ui/button";
 import {
   Dialog,
@@ -25,6 +25,7 @@ import {
 import { cn } from "@/src/lib/utils";
 import React from "react";
 import { RecipeForm, type SuggestedIngredient } from "@/src/domains/recipes/_components/recipe-form";
+import type { GoogleImage } from "@/src/services/googleimages";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -111,68 +112,296 @@ function extractRecipeIngredients(text: string): Map<string, SuggestedIngredient
 }
 
 /**
- * Renders a plain-text string with basic markdown:
+ * Renders a single line of text with basic markdown:
  *  - **bold**
  *  - [label](url) → clickable link
- *  - newlines preserved
  */
+function renderMarkdownLine(line: string, lineIdx: number): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*(.+?)\*\*|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(line.slice(lastIndex, match.index));
+    }
+
+    if (match[3] && match[4]) {
+      parts.push(
+        <a
+          key={`${lineIdx}-${match.index}`}
+          href={match[4]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 text-primary hover:text-primary/80 font-medium"
+        >
+          {match[3]}
+        </a>
+      );
+    } else if (match[2]) {
+      parts.push(
+        <strong key={`${lineIdx}-${match.index}`} className="font-semibold">
+          {match[2]}
+        </strong>
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < line.length) {
+    parts.push(line.slice(lastIndex));
+  }
+
+  return (
+    <React.Fragment key={lineIdx}>
+      {parts.length > 0 ? parts : line}
+    </React.Fragment>
+  );
+}
+
+/** Renders plain markdown text (bold + links + newlines). */
 function renderMarkdown(text: string): React.ReactNode[] {
   const lines = text.split("\n");
+  return lines.map((line, lineIdx) => (
+    <React.Fragment key={lineIdx}>
+      {renderMarkdownLine(line, lineIdx)}
+      {lineIdx < lines.length - 1 && <br />}
+    </React.Fragment>
+  ));
+}
 
-  return lines.map((line, lineIdx) => {
-    const parts: React.ReactNode[] = [];
-    const regex = /(\*\*(.+?)\*\*|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
+/**
+ * Renders an image gallery row for a recipe.
+ */
+function renderImageGallery(
+  recipeName: string,
+  imgs: GoogleImage[] | undefined,
+  isLoading: boolean,
+  onImageError: (recipeName: string, imageId: string) => void
+): React.ReactNode {
+  return (
+    <div key={`imgs-${recipeName}`} className="my-2">
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Loading images&hellip;
+        </div>
+      ) : imgs && imgs.length > 0 ? (
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {imgs.map((img) => (
+            <a
+              key={img.id}
+              href={img.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-lg overflow-hidden border border-border/50 hover:border-primary/30 transition-colors group"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.thumbUrl}
+                alt={recipeName}
+                className="w-[90px] h-[68px] object-cover group-hover:scale-105 transition-transform duration-200"
+                loading="lazy"
+                onError={() => onImageError(recipeName, img.id)}
+              />
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
-    while ((match = regex.exec(line)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(line.slice(lastIndex, match.index));
+/**
+ * Renders an assistant message splitting each recipe into a bordered card.
+ * Card order: title → description → ingredients → images → links → "Add" button
+ */
+function renderMessageWithImages(
+  text: string,
+  recipeImgs: Record<string, GoogleImage[]>,
+  loadingImgs: Set<string>,
+  onImageError: (recipeName: string, imageId: string) => void,
+  onAddRecipe: (recipeName: string) => void
+): React.ReactNode[] {
+  const lines = text.split("\n");
+  const totalLines = lines.length;
+
+  // ---- Split lines into sections: "intro" (no recipe) or "recipe" --------
+  type Line = { text: string; globalIdx: number };
+  type Section =
+    | { kind: "intro"; lines: Line[] }
+    | { kind: "recipe"; name: string; lines: Line[] };
+
+  const sections: Section[] = [];
+  let current: Section = { kind: "intro", lines: [] };
+
+  for (let i = 0; i < totalLines; i++) {
+    const line = lines[i];
+    const nameMatch = line.match(/\*\*([^*]+)\*\*/);
+
+    if (nameMatch) {
+      const raw = nameMatch[1].trim().replace(/^\d+[\.\)]\s*/, "").trim();
+      const lower = raw.toLowerCase();
+      const isRecipe =
+        !lower.startsWith("important") &&
+        !lower.startsWith("note") &&
+        !lower.includes("recipe link") &&
+        raw.length >= 3;
+
+      if (isRecipe) {
+        if (current.lines.length > 0) sections.push(current);
+        current = { kind: "recipe", name: raw, lines: [{ text: line, globalIdx: i }] };
+        continue;
       }
-
-      if (match[3] && match[4]) {
-        parts.push(
-          <a
-            key={`${lineIdx}-${match.index}`}
-            href={match[4]}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2 text-primary hover:text-primary/80 font-medium"
-          >
-            {match[3]}
-          </a>
-        );
-      } else if (match[2]) {
-        parts.push(
-          <strong key={`${lineIdx}-${match.index}`} className="font-semibold">
-            {match[2]}
-          </strong>
-        );
-      }
-
-      lastIndex = match.index + match[0].length;
     }
 
-    if (lastIndex < line.length) {
-      parts.push(line.slice(lastIndex));
+    current.lines.push({ text: line, globalIdx: i });
+  }
+  if (current.lines.length > 0) sections.push(current);
+
+  // ---- Render each section -----------------------------------------------
+  const result: React.ReactNode[] = [];
+
+  for (const section of sections) {
+    if (section.kind === "intro") {
+      for (const { text: line, globalIdx } of section.lines) {
+        result.push(
+          <React.Fragment key={`line-${globalIdx}`}>
+            {renderMarkdownLine(line, globalIdx)}
+            {globalIdx < totalLines - 1 && <br />}
+          </React.Fragment>
+        );
+      }
+      continue;
     }
 
-    return (
-      <React.Fragment key={lineIdx}>
-        {parts.length > 0 ? parts : line}
-        {lineIdx < lines.length - 1 && <br />}
-      </React.Fragment>
+    // ---- Recipe card ------------------------------------------------------
+    const { name: recipeName, lines: sectionLines } = section;
+    const imgs = recipeImgs[recipeName];
+    const isLoading = loadingImgs.has(recipeName);
+    let imagesInserted = false;
+    const cardNodes: React.ReactNode[] = [];
+
+    for (let j = 0; j < sectionLines.length; j++) {
+      const { text: line, globalIdx } = sectionLines[j];
+      const isLastLine = j === sectionLines.length - 1;
+
+      cardNodes.push(
+        <React.Fragment key={`line-${globalIdx}`}>
+          {renderMarkdownLine(line, globalIdx)}
+          {!isLastLine && <br />}
+        </React.Fragment>
+      );
+
+      // After ingredient line, insert images
+      if (line.includes("📝") && !imagesInserted) {
+        imagesInserted = true;
+        if (isLoading || (imgs && imgs.length > 0)) {
+          cardNodes.push(renderImageGallery(recipeName, imgs, isLoading, onImageError));
+        }
+      }
+    }
+
+    // If no 📝 line was found, insert images at end of card
+    if (!imagesInserted && (isLoading || (imgs && imgs.length > 0))) {
+      cardNodes.push(renderImageGallery(recipeName, imgs, isLoading, onImageError));
+    }
+
+    // "Add" button inside the card
+    cardNodes.push(
+      <div key={`add-${recipeName}`} className="pt-2">
+        <button
+          onClick={() => onAddRecipe(recipeName)}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+        >
+          <Plus className="w-3 h-3" />
+          Add &ldquo;{recipeName}&rdquo;
+        </button>
+      </div>
     );
-  });
+
+    result.push(
+      <div
+        key={`card-${recipeName}`}
+        className="my-2.5 rounded-xl border border-border/60 bg-background/30 p-3"
+      >
+        {cardNodes}
+      </div>
+    );
+  }
+
+  return result;
 }
 
 const SUGGESTIONS = [
-  "What should I cook tonight?",
-  "Suggest something quick and easy",
-  "I'm in the mood for comfort food",
-  "What can I make with chicken?",
-  "Recommend a healthy dinner",
+  // 🥗 Fresh & Light
+  "Crunchy Asian slaw with sesame dressing",
+  "Thai-style slaw with peanut lime sauce",
+  "Vietnamese chicken salad with herbs",
+  "Crispy tofu and red cabbage slaw bowl",
+  "Fresh mango, carrot & chilli slaw",
+
+  // 🍗 Chicken
+  "Sticky honey garlic chicken",
+  "Creamy Tuscan chicken with spinach",
+  "Spicy gochujang chicken rice bowl",
+  "Lemon butter chicken with greens",
+  "Chicken shawarma flatbreads",
+  "Teriyaki chicken stir fry",
+  "Chicken katsu curry at home",
+
+  // 🥩 Beef Mince
+  "Korean beef mince rice bowl",
+  "Spaghetti bolognese with rich tomato sauce",
+  "Beef mince tacos with fresh salsa",
+  "Loaded beef nachos",
+  "Shepherd’s pie with cheesy mash",
+  "Beef and mushroom stroganoff",
+  "Juicy homemade beef burgers",
+
+  // 🐟 Salmon
+  "Honey soy glazed salmon",
+  "Creamy garlic salmon with spinach",
+  "Teriyaki salmon poke bowl",
+  "Crispy skin salmon with lemon butter",
+  "Salmon and avocado rice bowl",
+  "Salmon fishcakes with dill sauce",
+
+  // 🥢 Quick Asian-Inspired
+  "Ginger garlic noodle stir fry",
+  "Sweet chilli chicken noodles",
+  "Beef and broccoli stir fry",
+  "Spicy udon with vegetables",
+  "Thai red curry with chicken",
+  "Coconut curry salmon",
+
+  // 🥙 Healthy High-Protein
+  "High protein chicken burrito bowl",
+  "Lean beef mince meal prep bowls",
+  "Grilled salmon with quinoa salad",
+  "Chicken and avocado protein wrap",
+  "Low carb Asian lettuce wraps",
+
+  // 🥘 Comfort Food
+  "Creamy chicken pasta bake",
+  "Beef mince chilli con carne",
+  "One pan garlic butter chicken",
+  "Salmon creamy pasta",
+  "Sticky BBQ chicken tray bake",
+
+  // 🔥 Meal Prep Friendly
+  "5 day chicken meal prep ideas",
+  "Beef mince batch cooking ideas",
+  "Salmon lunches for the week",
+  "Healthy Asian slaw meal prep bowls"
 ];
+
+function pickRandom<T>(arr: T[], count: number): T[] {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 export function RecommendChatDrawer() {
   const [open, setOpen] = useState(false);
@@ -189,6 +418,62 @@ export function RecommendChatDrawer() {
   const [view, setView] = useState<View>("chat");
   const [selectedRecipeName, setSelectedRecipeName] = useState("");
   const [selectedRecipeIngredients, setSelectedRecipeIngredients] = useState<SuggestedIngredient[]>([]);
+
+  // Recipe images scraped from Google
+  const [recipeImages, setRecipeImages] = useState<Record<string, GoogleImage[]>>({});
+  const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
+  const fetchedRecipesRef = useRef<Set<string>>(new Set());
+
+  const fetchRecipeImages = useCallback(async (recipeName: string) => {
+    if (fetchedRecipesRef.current.has(recipeName)) return;
+    fetchedRecipesRef.current.add(recipeName);
+
+    setLoadingImages((prev) => new Set(prev).add(recipeName));
+
+    try {
+      const res = await fetch(
+        `/api/images/recipe?q=${encodeURIComponent(recipeName)}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.images && data.images.length > 0) {
+        setRecipeImages((prev) => ({ ...prev, [recipeName]: data.images }));
+      }
+    } catch {
+      // Silently fail — images are non-critical
+    } finally {
+      setLoadingImages((prev) => {
+        const next = new Set(prev);
+        next.delete(recipeName);
+        return next;
+      });
+    }
+  }, []);
+
+  // Remove broken images (404s, blocked URLs, etc.) from state
+  const handleImageError = useCallback((recipeName: string, imageId: string) => {
+    setRecipeImages((prev) => {
+      const images = prev[recipeName];
+      if (!images) return prev;
+      const filtered = images.filter((img) => img.id !== imageId);
+      if (filtered.length === images.length) return prev;
+      return { ...prev, [recipeName]: filtered };
+    });
+  }, []);
+
+  // When streaming finishes, fetch images for any new recipes
+  useEffect(() => {
+    if (isStreaming) return;
+
+    for (const msg of messages) {
+      if (msg.role === "assistant" && msg.content) {
+        const names = extractRecipeNames(msg.content);
+        for (const name of names) {
+          fetchRecipeImages(name);
+        }
+      }
+    }
+  }, [isStreaming, messages, fetchRecipeImages]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -302,6 +587,9 @@ export function RecommendChatDrawer() {
     setView("chat");
     setSelectedRecipeName("");
     setSelectedRecipeIngredients([]);
+    setRecipeImages({});
+    setLoadingImages(new Set());
+    fetchedRecipesRef.current = new Set();
   };
 
   const handleAddRecipe = (recipeName: string) => {
@@ -336,18 +624,26 @@ export function RecommendChatDrawer() {
     setSelectedRecipeIngredients([]);
   };
 
+  const randomSuggestions = useMemo(
+    () => pickRandom(SUGGESTIONS, 6).map((s) => `${s}`),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open]
+  );
+
   const hasMessages = messages.length > 0;
 
   return (
     <>
-      <Button
-        onClick={() => setOpen(true)}
-        variant="outline"
-        className="gap-2"
-      >
-        <Sparkles className="w-4 h-4" />
-        Recommend Me
-      </Button>
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+        <div className="absolute inset-0 -m-2 rounded-full bg-background/0 backdrop-blur-sm" />
+        <Button
+          onClick={() => setOpen(true)}
+          size="lg"
+          className="relative gap-2 rounded-full shadow-lg px-6 hover:shadow-xl transition-shadow"
+        > 
+          Food Assistant
+        </Button>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogPortal>
@@ -409,11 +705,9 @@ export function RecommendChatDrawer() {
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {!hasMessages ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mx-auto">
-                          <Sparkles className="w-6 h-6 text-primary" />
-                        </div>
+                    <div className="flex flex-col items-center justify-center h-full text-center space-y-5 py-4">
+                      <div className="space-y-2 shrink-0">
+                      
                         <h3 className="text-lg font-semibold">
                           What are you in the mood for?
                         </h3>
@@ -422,12 +716,15 @@ export function RecommendChatDrawer() {
                           recipes based on your tastes.
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-2 justify-center max-w-[320px]">
-                        {SUGGESTIONS.map((suggestion) => (
+                      <div className="flex flex-wrap gap-2.5 justify-center max-w-[340px]">
+                      <p className="text-sm text-muted-foreground max-w-[280px]">
+                        suggest me something like 
+                      </p>
+                        {randomSuggestions.map((suggestion) => (
                           <button
                             key={suggestion}
                             onClick={() => sendMessage(suggestion)}
-                            className="px-3 py-1.5 text-sm rounded-full border border-border/50 bg-background/60 text-secondary-foreground hover:bg-background/80 transition-colors"
+                            className="cursor-pointer px-3 py-1.5 text-sm rounded-full border border-border/50 bg-background/60 text-secondary-foreground hover:bg-background/80 transition-colors"
                           >
                             {suggestion}
                           </button>
@@ -437,14 +734,11 @@ export function RecommendChatDrawer() {
                   ) : (
                     messages.map((message, index) => {
                       const isAssistant = message.role === "assistant";
-                      // Only extract recipe names from completed assistant messages
-                      const showAddButtons =
+                      // Only show recipe cards for completed assistant messages
+                      const showRecipeCards =
                         isAssistant &&
                         message.content &&
                         (index < messages.length - 1 || !isStreaming);
-                      const recipeNames = showAddButtons
-                        ? extractRecipeNames(message.content)
-                        : [];
 
                       return (
                         <div key={index} className="space-y-2">
@@ -470,7 +764,9 @@ export function RecommendChatDrawer() {
                               {isAssistant ? (
                                 <div>
                                   {message.content ? (
-                                    renderMarkdown(message.content)
+                                    showRecipeCards
+                                      ? renderMessageWithImages(message.content, recipeImages, loadingImages, handleImageError, handleAddRecipe)
+                                      : renderMarkdown(message.content)
                                   ) : (
                                     <span className="inline-flex items-center gap-1 text-muted-foreground">
                                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -493,21 +789,6 @@ export function RecommendChatDrawer() {
                             )}
                           </div>
 
-                          {/* Add as Recipe buttons */}
-                          {recipeNames.length > 0 && (
-                            <div className="flex gap-2 flex-wrap ml-10">
-                              {recipeNames.map((name) => (
-                                <button
-                                  key={name}
-                                  onClick={() => handleAddRecipe(name)}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                  Add &ldquo;{name}&rdquo;
-                                </button>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       );
                     })
