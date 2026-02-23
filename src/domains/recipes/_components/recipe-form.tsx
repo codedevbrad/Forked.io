@@ -1,25 +1,46 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
-import { createRecipeAction, RecipeIngredientInput } from "@/src/domains/recipes/db";
+import { createRecipeAction, RecipeIngredientInput, uploadRecipeImageAction } from "@/src/domains/recipes/db";
 import { getIngredientDisplayName } from "@/src/domains/ingredients/utils";
 import { useIngredients } from "@/src/domains/ingredients/_contexts/useIngredients";
 import { useRecipes } from "@/src/domains/recipes/_contexts/useRecipes";
+import { ensureIngredientForShopAction } from "@/src/domains/ingredients/db";
+import {
+  IngredientPicker,
+  PickedIngredient,
+  IngredientSource,
+  compositeKey,
+} from "@/src/domains/ingredients/_components/ingredient-picker";
+import { useShopIngredients } from "@/src/domains/shop/_contexts/useShopIngredients";
+import { UnsplashPicker } from "@/src/components/ui/unsplash-picker";
+import { GoogleImagePicker } from "@/src/components/ui/google-image-picker";
 import { TagSelector } from "@/src/domains/ingredients/_components/tag-selector";
 import { Unit } from "@prisma/client";
-import { Plus, X, CheckCircle2, Circle, ChevronRight } from "lucide-react";
+import { X, CheckCircle2, Circle, ChevronRight, ChevronDown, ImageIcon, PartyPopper, UtensilsCrossed, MessageSquare, Globe } from "lucide-react";
+import Image from "next/image";
 
-type RecipeIngredientFormData = {
+export type SuggestedIngredient = {
+  name: string;
+  quantity: number;
+  unit: string;
+};
+
+type SelectedIngredient = {
+  source: IngredientSource;
+  originalId: string;
   ingredientId: string;
+  name: string;
   quantity: string;
   unit: Unit;
 };
 
 type RecipeFormProps = {
   initialName?: string;
+  initialSuggestedIngredients?: SuggestedIngredient[];
   initialTags?: Array<{
     id: string;
     name: string;
@@ -27,38 +48,220 @@ type RecipeFormProps = {
   }>;
   onSuccess?: () => void;
   onCancel?: () => void;
+  /** Called when user wants to go back to chat from the success screen */
+  onBackToChat?: () => void;
+};
+
+type Step = 1 | 2 | 3 | 4 | 5;
+
+const STEP_LABELS: Record<Step, string> = {
+  1: "Recipe Name",
+  2: "Ingredients",
+  3: "Tags",
+  4: "Picture",
+  5: "Complete",
 };
 
 export function RecipeForm({ 
   initialName = "", 
+  initialSuggestedIngredients,
   initialTags = [],
   onSuccess,
-  onCancel 
+  onCancel,
+  onBackToChat,
 }: RecipeFormProps) {
-  const { data: ingredients } = useIngredients();
+  const { data: userIngredients, mutate: mutateIngredients } = useIngredients();
+  const { data: shopIngredients } = useShopIngredients();
   const { mutate } = useRecipes();
   const [name, setName] = useState(initialName);
-  const [recipeIngredients, setRecipeIngredients] = useState<RecipeIngredientFormData[]>([]);
+  const [recipeIngredients, setRecipeIngredients] = useState<SelectedIngredient[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialTags.map(tag => tag.id));
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [created, setCreated] = useState(false);
+  const [createdRecipeName, setCreatedRecipeName] = useState("");
+  const [imageSource, setImageSource] = useState<"unsplash" | "web">("web");
 
-  const addIngredient = () => {
-    setRecipeIngredients([
-      ...recipeIngredients,
-      { ingredientId: "", quantity: "", unit: Unit.g },
-    ]);
+  // If we have pre-filled data (from AI recommendation), skip to step 2 (ingredients)
+  const hasInitialData = !!(initialName && initialSuggestedIngredients?.length);
+  const [currentStep, setCurrentStep] = useState<Step>(hasInitialData ? 2 : 1);
+
+  // Build shopIngredientId → Ingredient.id map
+  const shopToIngredientMap = useMemo(() => {
+    const map = new Map<string, { ingredientId: string; name: string }>();
+    userIngredients?.forEach((ui) => {
+      if (ui.shopIngredientId) {
+        map.set(ui.shopIngredientId, {
+          ingredientId: ui.id,
+          name: getIngredientDisplayName(ui),
+        });
+      }
+    });
+    return map;
+  }, [userIngredients]);
+
+  // Auto-match suggested ingredients against user's library + shop catalog
+  const hasMatchedSuggestions = useRef(false);
+  useEffect(() => {
+    if (
+      hasMatchedSuggestions.current ||
+      !initialSuggestedIngredients?.length ||
+      !userIngredients ||
+      !shopIngredients
+    ) {
+      return;
+    }
+    hasMatchedSuggestions.current = true;
+
+    const validUnits = new Set(Object.values(Unit));
+    const matched: SelectedIngredient[] = [];
+    const seen = new Set<string>(); // avoid duplicates
+
+    for (const suggested of initialSuggestedIngredients) {
+      const suggestedLower = suggested.name.toLowerCase().trim();
+      const suggestedUnit = validUnits.has(suggested.unit as Unit)
+        ? (suggested.unit as Unit)
+        : Unit.g;
+
+      // 1. Try matching against user's existing ingredients (by display name)
+      let found = false;
+      for (const ui of userIngredients) {
+        const displayName = getIngredientDisplayName(ui).toLowerCase();
+        if (displayName === suggestedLower || displayName.includes(suggestedLower) || suggestedLower.includes(displayName)) {
+          const key = compositeKey(ui.shopIngredientId ? "shop" : "user", ui.shopIngredientId ?? ui.id);
+          if (seen.has(key)) continue;
+          seen.add(key);
+
+          if (ui.shopIngredientId) {
+            matched.push({
+              source: "shop",
+              originalId: ui.shopIngredientId,
+              ingredientId: ui.id,
+              name: getIngredientDisplayName(ui),
+              quantity: String(suggested.quantity),
+              unit: suggestedUnit,
+            });
+          } else {
+            matched.push({
+              source: "user",
+              originalId: ui.id,
+              ingredientId: ui.id,
+              name: getIngredientDisplayName(ui),
+              quantity: String(suggested.quantity),
+              unit: suggestedUnit,
+            });
+          }
+          found = true;
+          break;
+        }
+      }
+
+      // 2. If not in user's library, try the full shop catalog
+      if (!found) {
+        for (const si of shopIngredients) {
+          const shopName = si.name.toLowerCase();
+          if (shopName === suggestedLower || shopName.includes(suggestedLower) || suggestedLower.includes(shopName)) {
+            const key = compositeKey("shop", si.id);
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            const resolved = shopToIngredientMap.get(si.id);
+            matched.push({
+              source: "shop",
+              originalId: si.id,
+              ingredientId: resolved?.ingredientId ?? "",
+              name: si.name,
+              quantity: String(suggested.quantity),
+              unit: suggestedUnit,
+            });
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (matched.length > 0) {
+      setRecipeIngredients(matched);
+    }
+  }, [initialSuggestedIngredients, userIngredients, shopIngredients, shopToIngredientMap]);
+
+  // Build selected set for the picker
+  const selectedSet = useMemo(
+    () => new Set(recipeIngredients.map((i) => compositeKey(i.source, i.originalId))),
+    [recipeIngredients]
+  );
+
+  // Picker toggle handler
+  const handlePickerToggle = useCallback(
+    (item: PickedIngredient) => {
+      const key = compositeKey(item.source, item.id);
+
+      setRecipeIngredients((prev) => {
+        const exists = prev.some(
+          (i) => compositeKey(i.source, i.originalId) === key
+        );
+
+        if (exists) {
+          return prev.filter(
+            (i) => compositeKey(i.source, i.originalId) !== key
+          );
+        }
+
+        if (item.source === "user") {
+          return [
+            ...prev,
+            {
+              source: "user",
+              originalId: item.id,
+              ingredientId: item.id,
+              name: item.name,
+              quantity: "",
+              unit: Unit.g,
+            },
+          ];
+        }
+
+        const resolved = shopToIngredientMap.get(item.id);
+        return [
+          ...prev,
+          {
+            source: "shop",
+            originalId: item.id,
+            ingredientId: resolved?.ingredientId ?? "",
+            name: item.name,
+            quantity: "",
+            unit: Unit.g,
+          },
+        ];
+      });
+    },
+    [shopToIngredientMap]
+  );
+
+  const removeIngredient = (source: IngredientSource, originalId: string) => {
+    const key = compositeKey(source, originalId);
+    setRecipeIngredients((prev) =>
+      prev.filter((i) => compositeKey(i.source, i.originalId) !== key)
+    );
   };
 
-  const removeIngredient = (index: number) => {
-    setRecipeIngredients(recipeIngredients.filter((_, i) => i !== index));
-  };
-
-  const updateIngredient = (index: number, field: keyof RecipeIngredientFormData, value: string | Unit) => {
-    const updated = [...recipeIngredients];
-    updated[index] = { ...updated[index], [field]: value };
-    setRecipeIngredients(updated);
+  const updateIngredientField = (
+    source: IngredientSource,
+    originalId: string,
+    field: "quantity" | "unit",
+    value: string | Unit
+  ) => {
+    const key = compositeKey(source, originalId);
+    setRecipeIngredients((prev) =>
+      prev.map((i) =>
+        compositeKey(i.source, i.originalId) === key
+          ? { ...i, [field]: value }
+          : i
+      )
+    );
   };
 
   const validateStep1 = (): boolean => {
@@ -70,17 +273,14 @@ export function RecipeForm({
   };
 
   const validateStep2 = (): boolean => {
-    // Check if at least one ingredient is added
-    const hasIngredients = recipeIngredients.length > 0;
-    if (!hasIngredients) {
+    if (recipeIngredients.length === 0) {
       setError("At least one ingredient is required");
       return false;
     }
 
-    // Validate all ingredients are complete
     for (const ing of recipeIngredients) {
-      if (!ing.ingredientId || !ing.quantity) {
-        setError("All ingredients must have an ingredient and quantity selected");
+      if (!ing.quantity) {
+        setError("All ingredients must have a quantity");
         return false;
       }
       const quantity = parseFloat(ing.quantity);
@@ -95,27 +295,22 @@ export function RecipeForm({
   const handleNext = () => {
     setError("");
     if (currentStep === 1) {
-      if (validateStep1()) {
-        setCurrentStep(2);
-      }
+      if (validateStep1()) setCurrentStep(2);
     } else if (currentStep === 2) {
-      if (validateStep2()) {
-        setCurrentStep(3);
-      }
+      if (validateStep2()) setCurrentStep(3);
     } else if (currentStep === 3) {
-      // Tags step - no validation needed, tags are optional
+      // Tags — no validation needed
       setCurrentStep(4);
+    } else if (currentStep === 4) {
+      // Picture — optional, no validation
+      setCurrentStep(5);
     }
   };
 
   const handlePrevious = () => {
     setError("");
-    if (currentStep === 2) {
-      setCurrentStep(1);
-    } else if (currentStep === 3) {
-      setCurrentStep(2);
-    } else if (currentStep === 4) {
-      setCurrentStep(3);
+    if (currentStep > 1) {
+      setCurrentStep((currentStep - 1) as Step);
     }
   };
 
@@ -123,117 +318,146 @@ export function RecipeForm({
     e.preventDefault();
     setError("");
 
-    // Only allow submission on step 4
-    if (currentStep !== 4) {
-      return;
-    }
-
-    // Final validation
-    if (!validateStep1() || !validateStep2()) {
-      return;
-    }
-
-    // Validate and convert ingredients
-    const validIngredients: RecipeIngredientInput[] = [];
-    for (const ing of recipeIngredients) {
-      if (!ing.ingredientId || !ing.quantity) {
-        continue; // Skip incomplete ingredients
-      }
-      const quantity = parseFloat(ing.quantity);
-      if (isNaN(quantity) || quantity <= 0) {
-        setError("All ingredient quantities must be valid positive numbers");
-        return;
-      }
-      validIngredients.push({
-        ingredientId: ing.ingredientId,
-        quantity,
-        unit: ing.unit,
-      });
-    }
+    if (currentStep !== 5) return;
+    if (!validateStep1() || !validateStep2()) return;
 
     startTransition(async () => {
-      const result = await createRecipeAction(name, validIngredients, selectedTagIds);
+      // Resolve any shop ingredients that still need an Ingredient record
+      const validIngredients: RecipeIngredientInput[] = [];
+
+      for (const ing of recipeIngredients) {
+        const quantity = parseFloat(ing.quantity);
+        if (isNaN(quantity) || quantity <= 0) continue;
+
+        let ingredientId = ing.ingredientId;
+
+        if (!ingredientId) {
+          const result = await ensureIngredientForShopAction(ing.originalId);
+          if (!result.success) {
+            setError(result.error);
+            return;
+          }
+          ingredientId = result.data!.id;
+        }
+
+        validIngredients.push({ ingredientId, quantity, unit: ing.unit });
+      }
+
+      // Upload the selected image to R2 if one was chosen
+      let finalImageUrl: string | undefined;
+      if (selectedImageUrl) {
+        const uploadResult = await uploadRecipeImageAction(selectedImageUrl);
+        if (!uploadResult.success) {
+          setError(uploadResult.error);
+          return;
+        }
+        finalImageUrl = uploadResult.data?.url;
+      }
+
+      const result = await createRecipeAction(
+        name,
+        validIngredients,
+        selectedTagIds,
+        finalImageUrl
+      );
 
       if (!result.success) {
         setError(result.error);
       } else {
+        const savedName = name;
         setName("");
         setRecipeIngredients([]);
         setSelectedTagIds([]);
+        setSelectedImageUrl(null);
         setCurrentStep(1);
         await mutate();
-        onSuccess?.();
+        await mutateIngredients();
+        // If we have a back-to-chat callback, show the success screen instead of immediately closing
+        if (onBackToChat) {
+          setCreatedRecipeName(savedName);
+          setCreated(true);
+        } else {
+          onSuccess?.();
+        }
       }
     });
   };
 
-  // Show 4-step wizard for recipe creation
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Step Indicator */}
-      <div className="flex items-center justify-between w-full">
-        {/* Step 1: Recipe Name */}
-        <div className="flex items-center gap-2 flex-1">
-          <div className="flex items-center gap-2">
-            {currentStep > 1 ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            ) : currentStep === 1 ? (
-              <Circle className="w-5 h-5 text-primary fill-primary" />
-            ) : (
-              <Circle className="w-5 h-5 text-muted-foreground" />
-            )}
-            <span className={`text-sm ${currentStep === 1 ? "font-medium" : currentStep > 1 ? "text-muted-foreground" : "text-muted-foreground"}`}>
-              Recipe Name
-            </span>
-          </div>
-          {currentStep < 4 && <ChevronRight className="w-4 h-4 text-muted-foreground mx-2" />}
-        </div>
-
-        {/* Step 2: Ingredients */}
-        <div className="flex items-center gap-2 flex-1">
-          <div className="flex items-center gap-2">
-            {currentStep > 2 ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            ) : currentStep === 2 ? (
-              <Circle className="w-5 h-5 text-primary fill-primary" />
-            ) : (
-              <Circle className="w-5 h-5 text-muted-foreground" />
-            )}
-            <span className={`text-sm ${currentStep === 2 ? "font-medium" : currentStep > 2 ? "text-muted-foreground" : "text-muted-foreground"}`}>
-              Ingredients
-            </span>
-          </div>
-          {currentStep < 4 && <ChevronRight className="w-4 h-4 text-muted-foreground mx-2" />}
-        </div>
-
-        {/* Step 3: Tags */}
-        <div className="flex items-center gap-2 flex-1">
-          <div className="flex items-center gap-2">
-            {currentStep > 3 ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            ) : currentStep === 3 ? (
-              <Circle className="w-5 h-5 text-primary fill-primary" />
-            ) : (
-              <Circle className="w-5 h-5 text-muted-foreground" />
-            )}
-            <span className={`text-sm ${currentStep === 3 ? "font-medium" : currentStep > 3 ? "text-muted-foreground" : "text-muted-foreground"}`}>
-              Tags
-            </span>
-          </div>
-          {currentStep < 4 && <ChevronRight className="w-4 h-4 text-muted-foreground mx-2" />}
-        </div>
-
-        {/* Step 4: Complete */}
-        <div className="flex items-center gap-2 flex-1">
-          {currentStep === 4 ? (
+  // Step indicator helper
+  const renderStepIndicator = (step: Step) => {
+    const isActive = currentStep === step;
+    const isCompleted = currentStep > step;
+    return (
+      <div className="flex items-center gap-2 flex-1" key={step}>
+        <div className="flex items-center gap-2">
+          {isCompleted ? (
+            <CheckCircle2 className="w-5 h-5 text-green-500" />
+          ) : isActive ? (
             <Circle className="w-5 h-5 text-primary fill-primary" />
           ) : (
             <Circle className="w-5 h-5 text-muted-foreground" />
           )}
-          <span className={`text-sm ${currentStep === 4 ? "font-medium" : "text-muted-foreground"}`}>
-            Complete
+          <span className={`text-xs ${isActive ? "font-medium" : "text-muted-foreground"}`}>
+            {STEP_LABELS[step]}
           </span>
         </div>
+        {step < 5 && <ChevronRight className="w-4 h-4 text-muted-foreground mx-1" />}
+      </div>
+    );
+  };
+
+  if (created) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center space-y-6">
+        <div className="relative">
+          <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <PartyPopper className="w-10 h-10 text-green-600 dark:text-green-400" />
+          </div>
+          <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <CheckCircle2 className="w-5 h-5 text-green-500" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold">Recipe Added!</h3>
+          <p className="text-muted-foreground text-sm max-w-xs">
+            <span className="font-medium text-foreground">&ldquo;{createdRecipeName}&rdquo;</span>{" "}
+            has been saved to your recipe collection.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+          <Button
+            onClick={() => {
+              setCreated(false);
+              onSuccess?.();
+            }}
+            className="flex-1 gap-2"
+          >
+            <UtensilsCrossed className="w-4 h-4" />
+            Go to Recipes
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCreated(false);
+              onBackToChat?.();
+            }}
+            className="flex-1 gap-2"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Back to Chat
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Step Indicator */}
+      <div className="flex items-center justify-between w-full">
+        {([1, 2, 3, 4, 5] as Step[]).map(renderStepIndicator)}
       </div>
 
       {/* Step Content */}
@@ -259,89 +483,101 @@ export function RecipeForm({
 
         {/* Step 2: Ingredients */}
         {currentStep === 2 && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Ingredients</label>
-              <Button
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={addIngredient}
-                disabled={isPending}
+                onClick={() => setPickerOpen((o) => !o)}
+                className="flex items-center gap-2 text-sm font-medium w-full text-left"
               >
-                <Plus className="w-4 h-4 mr-1" />
-                Add
-              </Button>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${pickerOpen ? "" : "-rotate-90"}`}
+                />
+                Browse Ingredients
+                {recipeIngredients.length > 0 && (
+                  <span className="text-xs text-muted-foreground font-normal">
+                    ({recipeIngredients.length} selected)
+                  </span>
+                )}
+              </button>
+              {pickerOpen && (
+                <div className="border rounded-lg p-3">
+                  <IngredientPicker
+                    selected={selectedSet}
+                    onToggle={handlePickerToggle}
+                    disabled={isPending}
+                  />
+                </div>
+              )}
             </div>
 
-            {recipeIngredients.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No ingredients added. Click &quot;Add&quot; to add ingredients to this recipe.
-              </p>
-            )}
-
             <div className="space-y-2">
-              {recipeIngredients.map((ing, index) => (
-                <div key={index} className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <Select
-                      value={ing.ingredientId}
-                      onValueChange={(value) => updateIngredient(index, "ingredientId", value)}
-                      disabled={isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select ingredient" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ingredients?.map((ingredient) => (
-                          <SelectItem key={ingredient.id} value={ingredient.id}>
-                            {getIngredientDisplayName(ingredient)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-24">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={ing.quantity}
-                      onChange={(e) => updateIngredient(index, "quantity", e.target.value)}
-                      placeholder="Qty"
-                      disabled={isPending}
-                    />
-                  </div>
-                  <div className="w-32">
-                    <Select
-                      value={ing.unit}
-                      onValueChange={(value) => updateIngredient(index, "unit", value as Unit)}
-                      disabled={isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(Unit).map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeIngredient(index)}
-                    disabled={isPending}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+              <label className="text-sm font-medium">
+                Selected Ingredients ({recipeIngredients.length})
+              </label>
+
+              {recipeIngredients.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Browse and click ingredients above to add them to this recipe.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {recipeIngredients.map((ing) => {
+                    const key = compositeKey(ing.source, ing.originalId);
+                    return (
+                      <div key={key} className="flex gap-2 items-center border rounded-md px-3 py-2">
+                        <span className="flex-1 text-sm font-medium truncate">
+                          {ing.name}
+                        </span>
+                        <div className="w-20">
+                          <Input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={ing.quantity}
+                            onChange={(e) =>
+                              updateIngredientField(ing.source, ing.originalId, "quantity", e.target.value)
+                            }
+                            placeholder="Qty"
+                            disabled={isPending}
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="w-24">
+                          <Select
+                            value={ing.unit}
+                            onValueChange={(value) =>
+                              updateIngredientField(ing.source, ing.originalId, "unit", value as Unit)
+                            }
+                            disabled={isPending}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.values(Unit).map((unit) => (
+                                <SelectItem key={unit} value={unit}>
+                                  {unit}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeIngredient(ing.source, ing.originalId)}
+                          disabled={isPending}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -361,8 +597,90 @@ export function RecipeForm({
           </div>
         )}
 
-        {/* Step 4: Review/Complete */}
+        {/* Step 4: Picture */}
         {currentStep === 4 && (
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Recipe Image</label>
+            <p className="text-sm text-muted-foreground">
+              Find a picture to represent your recipe (optional)
+            </p>
+
+            {/* Image source tabs */}
+            <div className="flex gap-1 p-1 bg-muted rounded-lg">
+              <button
+                type="button"
+                onClick={() => setImageSource("web")}
+                className={`flex items-center gap-1.5 flex-1 text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                  imageSource === "web"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                Web Search
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageSource("unsplash")}
+                className={`flex items-center gap-1.5 flex-1 text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                  imageSource === "unsplash"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                Unsplash
+              </button>
+            </div>
+
+            {/* Pickers */}
+            {imageSource === "web" ? (
+              <GoogleImagePicker
+                selectedImageUrl={selectedImageUrl}
+                onSelectImage={setSelectedImageUrl}
+                initialQuery={name}
+                autoSearch={!!name.trim()}
+                disabled={isPending}
+              />
+            ) : (
+              <UnsplashPicker
+                selectedImageUrl={selectedImageUrl}
+                onSelectImage={setSelectedImageUrl}
+                initialQuery={name}
+                autoSearch={!!name.trim()}
+                disabled={isPending}
+              />
+            )}
+
+            {selectedImageUrl && (
+              <div className="flex items-center gap-3 p-2 border rounded-lg bg-muted/50">
+                <div className="relative w-16 h-10 rounded overflow-hidden shrink-0">
+                  <Image
+                    src={selectedImageUrl}
+                    alt="Selected recipe image"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground flex-1">Image selected</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedImageUrl(null)}
+                  disabled={isPending}
+                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 5: Review/Complete */}
+        {currentStep === 5 && (
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Recipe Name</label>
@@ -374,14 +692,14 @@ export function RecipeForm({
                 <p className="text-sm text-muted-foreground">No ingredients</p>
               ) : (
                 <div className="space-y-1">
-                  {recipeIngredients.map((ing, index) => {
-                    const ingredient = ingredients?.find(i => i.id === ing.ingredientId);
-                    return (
-                      <div key={index} className="text-sm text-muted-foreground p-2 bg-muted rounded">
-                        {ingredient?.name || "Unknown"} - {ing.quantity} {ing.unit}
-                      </div>
-                    );
-                  })}
+                  {recipeIngredients.map((ing) => (
+                    <div
+                      key={compositeKey(ing.source, ing.originalId)}
+                      className="text-sm text-muted-foreground p-2 bg-muted rounded"
+                    >
+                      {ing.name} - {ing.quantity} {ing.unit}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -393,6 +711,25 @@ export function RecipeForm({
                 <p className="text-sm text-muted-foreground p-2 bg-muted rounded">
                   {selectedTagIds.length} tag{selectedTagIds.length !== 1 ? "s" : ""} selected
                 </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Picture</label>
+              {selectedImageUrl ? (
+                <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
+                  <Image
+                    src={selectedImageUrl}
+                    alt="Selected recipe image"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-muted rounded">
+                  <ImageIcon className="w-4 h-4" />
+                  No image selected
+                </div>
               )}
             </div>
           </div>
@@ -417,14 +754,14 @@ export function RecipeForm({
             Previous
           </Button>
         )}
-        {currentStep < 4 ? (
+        {currentStep < 5 ? (
           <Button
             type="button"
             onClick={handleNext}
             disabled={isPending}
             className="flex-1"
           >
-            Next
+            {currentStep === 4 ? (selectedImageUrl ? "Next" : "Skip") : "Next"}
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         ) : (

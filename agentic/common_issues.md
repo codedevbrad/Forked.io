@@ -21,3 +21,29 @@ A <Select.Item /> must have a value prop that is not an empty string. This is be
   112 |         "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
 
 Next.js version: 16.1.1 (Turbopack)
+
+---
+description: React 19 - never call setState synchronously inside useEffect
+globs: **/*.tsx
+alwaysApply: false
+---
+
+# No synchronous setState inside useEffect
+
+React 19 disallows calling `setState` synchronously in the body of a `useEffect`. It causes cascading renders.
+
+## Syncing state to props (resetting state when props change)
+
+Use `useState` to track previous prop values and conditionally call `setState` during render.
+
+// BAD
+useEffect(() => {
+  setCurrentPage(1);
+}, [items.length]);
+
+// GOOD
+const [prevLength, setPrevLength] = useState(items.length);
+if (prevLength !== items.length) {
+  setPrevLength(items.length);
+  setCurrentPage(1);
+}

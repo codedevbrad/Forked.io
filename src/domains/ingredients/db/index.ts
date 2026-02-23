@@ -137,7 +137,7 @@ export async function deleteIngredientAction(id: string): Promise<ActionResult> 
     
     // Handle Prisma-specific errors
     if (error && typeof error === 'object' && 'code' in error) {
-      const prismaError = error as { code: string; meta?: any };
+      const prismaError = error as { code: string; meta?: Record<string, unknown> };
       
       if (prismaError.code === 'P2025') {
         return { success: false, error: "Ingredient not found or already deleted" };
@@ -194,6 +194,103 @@ export async function getIngredientsAction() {
       throw new Error("Prisma client needs to be regenerated. Run: npx prisma generate");
     }
     return [];
+  }
+}
+
+/**
+ * Ensures the current user has an Ingredient record linked to the given
+ * ShopIngredient. Returns the existing Ingredient if already linked, or
+ * creates a new one. Used when features like ingredient groups need to
+ * reference Ingredient records but the user picked a shop-catalog item.
+ */
+export async function ensureIngredientForShopAction(
+  shopIngredientId: string
+): Promise<ActionResult<{ id: string; name: string }>> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Check if user already has an Ingredient linked to this ShopIngredient
+    const existing = await prisma.ingredient.findFirst({
+      where: {
+        userId: session.user.id as string,
+        shopIngredientId,
+      },
+      include: {
+        shopIngredient: true,
+        customUserIngredient: true,
+      },
+    });
+
+    if (existing) {
+      return {
+        success: true,
+        data: { id: existing.id, name: getIngredientDisplayName(existing) },
+      };
+    }
+
+    // Look up the ShopIngredient to copy its data
+    const shopIngredient = await prisma.shopIngredient.findUnique({
+      where: { id: shopIngredientId },
+    });
+
+    if (!shopIngredient) {
+      return { success: false, error: "Shop ingredient not found" };
+    }
+
+    // Check if this ShopIngredient is already claimed (one-to-one @unique)
+    const claimed = await prisma.ingredient.findFirst({
+      where: { shopIngredientId },
+    });
+
+    if (claimed) {
+      // Already linked to another user's Ingredient — create a copy
+      const copy = await prisma.shopIngredient.create({
+        data: {
+          name: shopIngredient.name,
+          type: shopIngredient.type,
+          storageType: shopIngredient.storageType,
+          categoryId: shopIngredient.categoryId,
+        },
+      });
+      const ingredient = await prisma.ingredient.create({
+        data: {
+          userId: session.user.id as string,
+          shopIngredientId: copy.id,
+        },
+        include: {
+          shopIngredient: true,
+          customUserIngredient: true,
+        },
+      });
+      return {
+        success: true,
+        data: { id: ingredient.id, name: getIngredientDisplayName(ingredient) },
+      };
+    }
+
+    // Unclaimed — link directly
+    const ingredient = await prisma.ingredient.create({
+      data: {
+        userId: session.user.id as string,
+        shopIngredientId,
+      },
+      include: {
+        shopIngredient: true,
+        customUserIngredient: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: { id: ingredient.id, name: getIngredientDisplayName(ingredient) },
+    };
+  } catch (error) {
+    console.error("Ensure ingredient for shop error:", error);
+    return { success: false, error: "Failed to link ingredient" };
   }
 }
 

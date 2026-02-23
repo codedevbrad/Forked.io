@@ -12,6 +12,7 @@ model User {
   stored Stored[]
   shoppingLists ShoppingList[]
   tags Tag[]
+  ingredientGroups UserGroupedIngredients[]
 }
 
 
@@ -33,6 +34,8 @@ model Ingredient {
   customUserIngredient CustomUserIngredient? @relation(fields: [customUserIngredientId], references: [id])
   customUserIngredientId String?
 
+  ingredientGroups UserGroupedIngredients[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -53,4 +56,18 @@ model CustomUserIngredient {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model UserGroupedIngredients {
+  id        String       @id @default(cuid())
+  name      String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  ingredients Ingredient[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
 }

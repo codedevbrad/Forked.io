@@ -84,7 +84,13 @@ export const meatItems = [
     { name: "Venison steak", type: "food", storageType: "fridge" },
     { name: "Venison mince", type: "food", storageType: "fridge" },
     { name: "Rabbit", type: "food", storageType: "fridge" },
-    { name: "Pheasant", type: "food", storageType: "fridge" }
+    { name: "Pheasant", type: "food", storageType: "fridge" },
+
+    // =====================
+    // OTHER
+    // =====================
+    { name: "Chorizo", type: "food", storageType: "fridge" },
+
 ];
   
 export const fishItems = [
@@ -194,7 +200,8 @@ export const vegItems = [
     // ALLIUMS
     // =====================
     { name: "Onions", type: "food", storageType: "pantry" },
-    { name: "Red onion", type: "food", storageType: "pantry" },
+    { name: "Red onion", type: "food", storageType: "pantry" },   
+    { name: "green onion", type: "food", storageType: "pantry" }, 
     { name: "White onion", type: "food", storageType: "pantry" },
     { name: "Shallots", type: "food", storageType: "pantry" },
     { name: "Garlic", type: "food", storageType: "pantry" },
@@ -208,6 +215,7 @@ export const vegItems = [
     { name: "Iceberg lettuce", type: "food", storageType: "fridge" },
     { name: "Romaine lettuce", type: "food", storageType: "fridge" },
     { name: "Little gem lettuce", type: "food", storageType: "fridge" },
+    { name: "Gem lettuce", type: "food", storageType: "fridge" },
     { name: "Spinach", type: "food", storageType: "fridge" },
     { name: "Baby spinach", type: "food", storageType: "fridge" },
     { name: "Rocket", type: "food", storageType: "fridge" },
@@ -244,7 +252,8 @@ export const vegItems = [
     // =====================
     // SQUASH & COURGETTES
     // =====================
-    { name: "Courgettes", type: "food", storageType: "fridge" },
+    { name: "cucumber", type: "food", storageType: "fridge" },
+    { name: "Courgette", type: "food", storageType: "fridge" },
     { name: "Butternut squash", type: "food", storageType: "pantry" },
     { name: "Acorn squash", type: "food", storageType: "pantry" },
     { name: "Pumpkin", type: "food", storageType: "pantry" },
@@ -252,12 +261,12 @@ export const vegItems = [
     // =====================
     // LEGUMES & PODS (FRESH)
     // =====================
+    { name: "peas", type: "food", storageType: "fridge" },     // inherently plural
     { name: "Green beans", type: "food", storageType: "fridge" },      // inherently plural
     { name: "Fine beans", type: "food", storageType: "fridge" },       // inherently plural
     { name: "Runner beans", type: "food", storageType: "fridge" },     // inherently plural
     { name: "Mangetout", type: "food", storageType: "fridge" },
     { name: "Sugar snap peas", type: "food", storageType: "fridge" },  // inherently plural
-    { name: "Peas (fresh)", type: "food", storageType: "fridge" },     // inherently plural
     { name: "Broad beans", type: "food", storageType: "fridge" },      // inherently plural
   
     // =====================
@@ -300,11 +309,12 @@ export const dairyItems = [
     { name: "Milk", type: "food", storageType: "fridge" },
     { name: "Eggs", type: "food", storageType: "fridge" },
     { name: "Cheese", type: "food", storageType: "fridge" },
-    { name: "Parmesan cheese", type: "food", storageType: "pantry" },
-    { name: "Cheddar cheese", type: "food", storageType: "pantry" },
-    { name: "Mozzarella cheese", type: "food", storageType: "pantry" },
+    { name: "mature cheddar cheese", type: "food", storageType: "pantry" },
+    { name: "Parmesan", type: "food", storageType: "pantry" },
+    { name: "Cheddar", type: "food", storageType: "pantry" },
+    { name: "Mozzarella", type: "food", storageType: "pantry" },
     { name: "Cream cheese", type: "food", storageType: "pantry" },
-    { name: "Ricotta cheese", type: "food", storageType: "pantry" },
+    { name: "Ricotta", type: "food", storageType: "pantry" },
     { name: "Feta cheese", type: "food", storageType: "pantry" },
     { name: "Pecorino cheese", type: "food", storageType: "pantry" },
     { name: "Provolone cheese", type: "food", storageType: "pantry" },
@@ -312,6 +322,7 @@ export const dairyItems = [
     { name: "Light cream", type: "food", storageType: "fridge" },
     { name: "Heavy cream", type: "food", storageType: "fridge" },
     { name: "Butter", type: "food", storageType: "fridge" },
+    { name: "light butter", type: "food", storageType: "fridge" },
     { name: "Sour cream", type: "food", storageType: "fridge" },
     { name: "Ricotta", type: "food", storageType: "fridge" },
     { name: "Cottage cheese", type: "food", storageType: "fridge" },
@@ -328,11 +339,14 @@ export const seasoningsItems = [
     { name: "Pepper", type: "food", storageType: "pantry" },
     { name: "Black pepper", type: "food", storageType: "pantry" },
     { name: "White pepper", type: "food", storageType: "pantry" },
+    { name: "ground white pepper", type: "food", storageType: "pantry" },
+    { name: "ground black pepper", type: "food", storageType: "pantry" },
     { name: "Garlic salt", type: "food", storageType: "pantry" },
     { name: "Garlic powder", type: "food", storageType: "pantry" },
     { name: "Onion powder", type: "food", storageType: "pantry" },
     { name: "Paprika", type: "food", storageType: "pantry" },
     { name: "Cumin", type: "food", storageType: "pantry" },
+    { name: "Ground cumin", type: "food", storageType: "pantry" },
 ];
 
 export const sweetenersItems = [
@@ -345,11 +359,13 @@ export const spicesItems = [
     { name: "Cinnamon", type: "food", storageType: "pantry" },
     { name: "Nutmeg", type: "food", storageType: "pantry" },
     { name: "Ginger (ground)", type: "food", storageType: "pantry" },
+    { name: "Ginger", type: "food", storageType: "fridge" },
     { name: "Smoked paprika", type: "food", storageType: "pantry" },
     { name: "Cayenne pepper", type: "food", storageType: "pantry" },
-    { name: "Chili powder", type: "food", storageType: "pantry" },
-    { name: "Chili flakes", type: "food", storageType: "pantry" },    // inherently plural
-    { name: "Chili paste", type: "food", storageType: "pantry" },
+    { name: "Chilli powder", type: "food", storageType: "pantry" },
+    { name: "Chilli flakes", type: "food", storageType: "pantry" },    // inherently plural
+    { name: "Chilli paste", type: "food", storageType: "pantry" },
+    { name: "chipotle paste", type: "food", storageType: "pantry" },
 ]
 
 export const herbsItems = [
@@ -392,10 +408,15 @@ export const acidsItems = [
     { name: "Lemon juice", type: "food", storageType: "fridge" },
     { name: "Lemon zest", type: "food", storageType: "fridge" },
     { name: "Lime juice", type: "food", storageType: "fridge" },
+    { name: "Lime", type: "food", storageType: "fridge" },
+    { name: "Lime zest", type: "food", storageType: "fridge" },
 ]
 
 export const cookingSaucesItems = [
+    { name: "pasta sauce", type: "food", storageType: "pantry" },
     { name: "Soy sauce", type: "food", storageType: "pantry" },
+    { name: "light soy sauce", type: "food", storageType: "pantry" },
+    { name: "dark soy sauce", type: "food", storageType: "pantry" },
     { name: "Fish sauce", type: "food", storageType: "pantry" },
     { name: "Oyster sauce", type: "food", storageType: "pantry" },
     { name: "Curry paste", type: "food", storageType: "fridge" },
@@ -409,6 +430,8 @@ export const cookingSaucesItems = [
     { name: "Hoisin sauce", type: "food", storageType: "pantry" },
     { name: "Teriyaki sauce", type: "food", storageType: "pantry" },
     { name: "Sriracha", type: "food", storageType: "pantry" },
+    { name: "Chilli jam", type: "food", storageType: "pantry" },
+    { name: "pizza sauce", type: "food", storageType: "pantry" },
 ]  
 
 export const stockItems = [
@@ -416,6 +439,8 @@ export const stockItems = [
     { name: "Chicken stock", type: "food", storageType: "pantry" },
     { name: "Beef broth", type: "food", storageType: "pantry" },
     { name: "Beef stock", type: "food", storageType: "pantry" },
+    { name: "beef stock mix", type: "food", storageType: "pantry" },
+    { name: "Fish broth", type: "food", storageType: "pantry" },
     { name: "Vegetable broth", type: "food", storageType: "pantry" },
     { name: "Vegetable stock", type: "food", storageType: "pantry" },
     { name: "Stock cube", type: "food", storageType: "pantry" },
@@ -435,6 +460,8 @@ export const grainsItems = [
     { name: "Pitta bread", type: "food", storageType: "pantry" },     // mass/plural
     { name: "Naan bread", type: "food", storageType: "pantry" },
     { name: "Flatbread", type: "food", storageType: "pantry" },
+    { name: "Baguette", type: "food", storageType: "pantry" },
+    { name: "bagel", type: "food", storageType: "pantry" },
     // RICE
     { name: "Brown rice", type: "food", storageType: "pantry" },
     { name: "Basmati rice", type: "food", storageType: "pantry" },
@@ -565,6 +592,8 @@ export const nutsAndSeedsItems = [
 ]
 
 export const bakingItems = [
+    { name: "sugar", type: "food", storageType: "pantry" },
+
     { name: "Plain flour", type: "food", storageType: "pantry" },
     { name: "Self-raising flour", type: "food", storageType: "pantry" },
     { name: "Strong bread flour", type: "food", storageType: "pantry" },

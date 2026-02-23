@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ShoppingListIngredient } from "./types";
@@ -16,11 +16,12 @@ export function IngredientList({
   itemsPerPage = 6,
 }: IngredientListProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [prevLength, setPrevLength] = useState(ingredients.length);
 
-  // Reset to page 1 when ingredients change
-  useEffect(() => {
+  if (prevLength !== ingredients.length) {
+    setPrevLength(ingredients.length);
     setCurrentPage(1);
-  }, [ingredients.length]);
+  }
 
   if (!ingredients || ingredients.length === 0) {
     return (

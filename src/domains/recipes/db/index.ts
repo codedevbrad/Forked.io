@@ -7,6 +7,7 @@ import { Unit, IngredientType } from "@prisma/client";
 import { scrapeRecipeFromUrl } from "@/src/services/scraper";
 import { extractRecipeData, type ExtractedIngredient } from "@/src/services/openai/ai.extractrecipe";
 import { searchUnsplashPhotos, type UnsplashPhoto } from "@/src/services/unsplash";
+import { searchGoogleImages, type GoogleImage } from "@/src/services/googleimages";
 import { getNameVariants } from "@/src/lib/pluralise";
 import { uploadRecipeImageToR2 } from "@/src/lib/cloudflare";
 
@@ -19,7 +20,8 @@ export type RecipeIngredientInput = {
 export async function createRecipeAction(
   name: string,
   ingredients: RecipeIngredientInput[] = [],
-  tagIds: string[] = []
+  tagIds: string[] = [],
+  imageUrl?: string
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
     const session = await auth();
@@ -65,6 +67,7 @@ export async function createRecipeAction(
       data: {
         name: name.trim(),
         userId: session.user.id as string,
+        ...(imageUrl ? { image: imageUrl } : {}),
         ingredients: {
           create: ingredients.map((ing) => ({
             ingredientId: ing.ingredientId,
@@ -425,6 +428,36 @@ export async function searchUnsplashImagesAction(
 }
 
 /**
+ * Searches Google Images for photos matching a query string (web scraping).
+ */
+export async function searchGoogleImagesAction(
+  query: string
+): Promise<ActionResult<{ images: GoogleImage[] }>> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!query || query.trim().length === 0) {
+      return { success: false, error: "Search query is required" };
+    }
+
+    const images = await searchGoogleImages(query.trim());
+    return { success: true, data: { images } };
+  } catch (error) {
+    console.error("Google Images search error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    return {
+      success: false,
+      error: `Failed to search Google Images: ${errorMessage}`,
+    };
+  }
+}
+
+/**
  * Saves a previewed recipe to the database.
  * Matches scraped ingredients to existing ShopIngredient by name (case-insensitive).
  * Unmatched names are linked to a CustomUserIngredient (find-or-create).
@@ -589,6 +622,56 @@ export async function savePreviewedRecipeAction(
       success: false, 
       error: `Failed to save recipe: ${errorMessage}` 
     };
+  }
+}
+
+/**
+ * Returns a summary of the user's recipes formatted for AI context.
+ * Each recipe is a single-line string: "Recipe Name (tags: X, Y) — ingredients: a, b, c"
+ */
+export async function getRecipeSummariesForAIAction(): Promise<string[]> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return [];
+    }
+
+    const recipes = await prisma.recipe.findMany({
+      where: { userId: session.user.id as string },
+      include: {
+        ingredients: {
+          include: {
+            ingredient: { include: { shopIngredient: true, customUserIngredient: true } },
+          },
+        },
+        tags: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50, // Cap to avoid token overflow
+    });
+
+    return recipes.map((recipe) => {
+      const ingredientNames = recipe.ingredients
+        .map((ri) => {
+          const name =
+            ri.ingredient.shopIngredient?.name ??
+            ri.ingredient.customUserIngredient?.name ??
+            "unknown";
+          return name;
+        })
+        .join(", ");
+
+      const tagNames =
+        recipe.tags.length > 0
+          ? ` (tags: ${recipe.tags.map((t) => t.name).join(", ")})`
+          : "";
+
+      return `${recipe.name}${tagNames} — ingredients: ${ingredientNames}`;
+    });
+  } catch (error) {
+    console.error("Get recipe summaries error:", error);
+    return [];
   }
 }
 

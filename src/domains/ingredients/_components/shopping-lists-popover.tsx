@@ -11,37 +11,24 @@ export function ShoppingListsPopover() {
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState({ x: 100, y: 100 });
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const boxRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
 
   const selectedList = shoppingLists.find((list) => list.id === selectedListId);
 
-  // Center the box on first open
+  // Handle dragging via event listeners
   useEffect(() => {
-    if (open && boxRef.current) {
-      const boxWidth = boxRef.current.offsetWidth || 320;
-      const boxHeight = boxRef.current.offsetHeight || 500;
-      setPosition({
-        x: (window.innerWidth - boxWidth) / 2,
-        y: (window.innerHeight - boxHeight) / 2,
-      });
-    }
-  }, [open]);
-
-  // Handle dragging
-  useEffect(() => {
-    if (!isDragging || !boxRef.current) return;
+    if (!isDragging) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newX = e.clientX - dragStart.x;
-      const newY = e.clientY - dragStart.y;
-      
-      // Constrain to viewport
+      const newX = e.clientX - dragStartRef.current.x;
+      const newY = e.clientY - dragStartRef.current.y;
+
       const maxX = window.innerWidth - (boxRef.current?.offsetWidth || 0);
       const maxY = window.innerHeight - (boxRef.current?.offsetHeight || 0);
-      
+
       setPosition({
         x: Math.max(0, Math.min(newX, maxX)),
         y: Math.max(0, Math.min(newY, maxY)),
@@ -59,22 +46,29 @@ export function ShoppingListsPopover() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, dragStart]);
+  }, [isDragging]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Don't start dragging if clicking on a button or link
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
       return;
     }
 
     if (headerRef.current?.contains(e.target as Node)) {
+      const box = boxRef.current;
+      if (!box) return;
+
+      const rect = box.getBoundingClientRect();
+      if (!position) {
+        setPosition({ x: rect.left, y: rect.top });
+      }
+
+      dragStartRef.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
       setIsDragging(true);
-      setDragStart({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y,
-      });
     }
-  };
+  }, [position]);
 
   const handleListSelect = (listId: string) => {
     setSelectedListId(listId);
@@ -87,6 +81,7 @@ export function ShoppingListsPopover() {
   const handleClose = () => {
     setOpen(false);
     setSelectedListId(null);
+    setPosition(null);
   };
 
   if (!open) {
@@ -110,10 +105,11 @@ export function ShoppingListsPopover() {
       <div
         ref={boxRef}
         className="fixed z-50 bg-background border rounded-lg shadow-lg w-80 max-h-[500px] flex flex-col"
-        style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-        }}
+        style={
+          position
+            ? { left: `${position.x}px`, top: `${position.y}px` }
+            : { left: "50%", top: "50%", transform: "translate(-50%, -50%)" }
+        }
         onMouseDown={handleMouseDown}
       >
         {/* Header with drag handle */}
@@ -192,7 +188,7 @@ export function ShoppingListsPopover() {
                     {selectedList.ingredients.map((ing) => (
                       <li key={ing.id} className="flex items-center gap-2 border rounded-md my-3 p-2 pl-4 shadow-md">
                         <span>
-                           {ing.quantity} {ing.unit} {getIngredientDisplayName(ing.ingredient)}
+                           {ing.quantity} {ing.unit} {ing.ingredient ? getIngredientDisplayName(ing.ingredient) : "Unknown"}
                         </span>
                         {ing.recipe && (
                           <span title={`From recipe: ${ing.recipe.name}`}>
