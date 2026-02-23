@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef, useCallback } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
@@ -99,7 +99,11 @@ export function ShoppingListForm({
   const { data: recipes } = useRecipes();
   const { mutate } = useShoppingLists();
   const [name, setName] = useState(initialName);
-  const [ingredients, setIngredients] = useState<SelectedIngredient[]>([]);
+  const [ingredients, setIngredients] = useState<SelectedIngredient[]>(() =>
+    initialIngredients.length > 0
+      ? resolveInitialIngredients(initialIngredients)
+      : []
+  );
   const [selectedRecipeIds, setSelectedRecipeIds] = useState<string[]>(
     initialRecipes.map((r) => r.id)
   );
@@ -109,24 +113,19 @@ export function ShoppingListForm({
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const isEditing = !!shoppingListId;
-  const prevShoppingListIdRef = useRef<string | undefined>(shoppingListId);
-  const isInitialMountRef = useRef(true);
 
-  // Sync initial data on mount or when editing a different list
-  useEffect(() => {
-    const idChanged = prevShoppingListIdRef.current !== shoppingListId;
-    if (idChanged || isInitialMountRef.current) {
-      prevShoppingListIdRef.current = shoppingListId;
-      isInitialMountRef.current = false;
-      setName(initialName);
-      setIngredients(
-        initialIngredients.length > 0
-          ? resolveInitialIngredients(initialIngredients)
-          : []
-      );
-      setSelectedRecipeIds(initialRecipes.map((r) => r.id));
-    }
-  }, [shoppingListId, initialName, initialIngredients, initialRecipes]);
+  const [prevShoppingListId, setPrevShoppingListId] = useState(shoppingListId);
+
+  if (prevShoppingListId !== shoppingListId) {
+    setPrevShoppingListId(shoppingListId);
+    setName(initialName);
+    setIngredients(
+      initialIngredients.length > 0
+        ? resolveInitialIngredients(initialIngredients)
+        : []
+    );
+    setSelectedRecipeIds(initialRecipes.map((r) => r.id));
+  }
 
   // Build the selected set for the picker
   const selectedSet = new Set(

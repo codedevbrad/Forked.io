@@ -33,14 +33,14 @@ export function EditRecipeDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="w-full h-full sm:max-w-2xl overflow-y-auto">
+      <DrawerContent className="data-[vaul-drawer-direction=right]:w-[50vw] data-[vaul-drawer-direction=right]:sm:max-w-none h-full overflow-hidden">
         <DrawerHeader className="border-b">
           <DrawerTitle>Edit Recipe</DrawerTitle>
           <DrawerDescription>
             Update recipe details, ingredients, and tags
           </DrawerDescription>
         </DrawerHeader>
-        <div className="p-4">
+        <div className="flex-1 overflow-hidden">
           {recipeId && (
             <RecipeFormEdit
               recipeId={recipeId}

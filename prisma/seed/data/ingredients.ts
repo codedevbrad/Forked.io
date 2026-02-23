@@ -84,7 +84,7 @@ export const meatItems = [
     { name: "Venison steak", type: "food", storageType: "fridge" },
     { name: "Venison mince", type: "food", storageType: "fridge" },
     { name: "Rabbit", type: "food", storageType: "fridge" },
-    { name: "Pheasant", type: "food", storageType: "fridge" }
+    { name: "Pheasant", type: "food", storageType: "fridge" },
 
     // =====================
     // OTHER
@@ -413,6 +413,7 @@ export const acidsItems = [
 ]
 
 export const cookingSaucesItems = [
+    { name: "pasta sauce", type: "food", storageType: "pantry" },
     { name: "Soy sauce", type: "food", storageType: "pantry" },
     { name: "light soy sauce", type: "food", storageType: "pantry" },
     { name: "dark soy sauce", type: "food", storageType: "pantry" },

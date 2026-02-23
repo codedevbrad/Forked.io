@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import {
@@ -73,7 +73,11 @@ export function ProductForm({
   const [isPending, startTransition] = useTransition();
   const isEditing = !!productId;
 
-  useEffect(() => {
+  const formKey = `${productId}-${initialRetailer}-${initialProductName}-${initialUrl}-${initialPrice}-${initialSize}-${initialUnit}-${initialImageUrl}`;
+  const [prevFormKey, setPrevFormKey] = useState(formKey);
+
+  if (prevFormKey !== formKey) {
+    setPrevFormKey(formKey);
     setRetailer(initialRetailer);
     setProductName(initialProductName);
     setUrl(initialUrl ?? "");
@@ -81,16 +85,7 @@ export function ProductForm({
     setSize(initialSize != null ? String(initialSize) : "");
     setUnit(initialUnit ?? UNIT_NONE);
     setImageUrl(initialImageUrl ?? "");
-  }, [
-    initialRetailer,
-    initialProductName,
-    initialUrl,
-    initialPrice,
-    initialSize,
-    initialUnit,
-    initialImageUrl,
-    productId,
-  ]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

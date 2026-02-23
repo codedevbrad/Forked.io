@@ -137,7 +137,7 @@ export async function deleteIngredientAction(id: string): Promise<ActionResult> 
     
     // Handle Prisma-specific errors
     if (error && typeof error === 'object' && 'code' in error) {
-      const prismaError = error as { code: string; meta?: any };
+      const prismaError = error as { code: string; meta?: Record<string, unknown> };
       
       if (prismaError.code === 'P2025') {
         return { success: false, error: "Ingredient not found or already deleted" };
