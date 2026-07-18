@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { getAuthCookies } from "@/src/auth/cookie-config";
 import { prisma } from "@/src/lib/db";
 import bcrypt from "bcryptjs";
 
@@ -46,6 +47,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
   },
+  cookies: getAuthCookies(),
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

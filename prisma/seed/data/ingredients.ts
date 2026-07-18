@@ -293,6 +293,7 @@ export const vegItems = [
     { name: "Frozen mixed vegetables", type: "food", storageType: "freezer" },   // inherently plural
     { name: "Frozen spinach", type: "food", storageType: "freezer" },
     { name: "Frozen broccoli", type: "food", storageType: "freezer" },
+    { name: "Frozen Mediterranean Style Roasting Vegetables", type: "food", storageType: "freezer" },
   
     // =====================
     // TINNED VEGETABLES
@@ -432,6 +433,7 @@ export const cookingSaucesItems = [
     { name: "Sriracha", type: "food", storageType: "pantry" },
     { name: "Chilli jam", type: "food", storageType: "pantry" },
     { name: "pizza sauce", type: "food", storageType: "pantry" },
+    { name: "Worcestershire sauce", type: "food", storageType: "pantry" },
 ]  
 
 export const stockItems = [
